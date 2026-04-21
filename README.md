@@ -10,6 +10,28 @@
 
 ---
 
+## Hackathon criteria alignment
+
+Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are spelled out in [`docs/CLINICALARC_X402_LEARNINGS_AND_BEST_PRACTICES.md`](./docs/CLINICALARC_X402_LEARNINGS_AND_BEST_PRACTICES.md) (*Hackathon / submission*). This README maps the **healtharcdemo** tree to those criteria; use **`/nhs/neighbourhood-insights`** as the primary demo surface.
+
+| Criterion | How this repo addresses it |
+|-----------|------------------------------|
+| **≤ $0.01 per paid API action** | x402 gates on neighbourhood + OpenEHR BFF routes use **$0.01** (see `server/neighbourhood/router.js`, `server/openehr/bffRouter.js`). The in-app transaction log shows **Cost (list)** **`$0.01`** for covered endpoints (`NEIGHBOURHOOD_X402_PRICE_DISPLAY` in `src/nhsTxHistory.ts`). |
+| **Volume / on-chain evidence (e.g. 50+ txs)** | Drive many paid calls from the neighbourhood page; collect **[Arc Testnet](https://testnet.arcscan.app)** history for the demo wallet. **Circle Gateway** can **batch** — N paid HTTP requests are not always N distinct explorer transactions; state that clearly. **Thirdweb** facilitator paths may differ; verify on Arcscan. |
+| **Margin & gas narrative** | The neighbourhood UI includes a **margin & gas** section explaining why sub-dollar API pricing is viable on **Arc + x402** versus naive per-transaction gas. |
+| **Track fit (per-API monetization, usage-based compute)** | **Per-request x402** on priced routes (LSOA / insights, OpenEHR BFF, summary, etc.) — HTTP **402** + payment behind the BFF, not a flat subscription. |
+| **Synthetic data & safety** | **Artificial HES** ingestion and demo EHRbase paths only — follow [`OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md`](./OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md) (disclaimer + checklist). |
+
+**Demo / video evidence**
+
+- Record paid actions on **`/nhs/neighbourhood-insights`** (wallet signing + successful API response).
+- Show **Circle Developer Console** when using **Circle Gateway**, and the same wallet on **[testnet.arcscan.app](https://testnet.arcscan.app)**.
+- Optional reviewer links: [Circle MCP](https://developers.circle.com/ai/mcp), [AIsa nanopayment-x402](https://github.com/AIsa-team/nanopayment-x402) for client x402 patterns.
+
+**Broader team checklist** (roles, smoke flows, audit logging): [`OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md`](./OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md#practical-checklist-for-hackathon-teams).
+
+---
+
 ## What this repo layers
 
 | Layer | Role |
@@ -49,7 +71,7 @@ Set **`SNOWSTORM_URL=http://localhost:8081`** and load a SNOMED CT RF2 release i
 
 If the UI shows **`Cannot POST /api/...`**, restart the backend on **8787**. Quick check: **`GET http://localhost:8787/openapi.json`**.
 
-**Hackathon submission video:** record a wallet payment in **Circle Developer Console** and the same tx on **testnet.arcscan.app**; use paid buttons on **`/nhs/neighbourhood-insights`** for Arc + x402 proof. Optional: [Circle MCP](https://developers.circle.com/ai/mcp) + [`llms-full.txt`](https://developers.circle.com/llms-full.txt) for codegen; [AIsa nanopayment-x402](https://github.com/AIsa-team/nanopayment-x402) as a client x402 reference.
+For hackathon capture steps, see **[Hackathon criteria alignment](#hackathon-criteria-alignment)**. For codegen velocity: [Circle MCP](https://developers.circle.com/ai/mcp) + [`llms-full.txt`](https://developers.circle.com/llms-full.txt).
 
 ---
 
