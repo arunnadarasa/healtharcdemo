@@ -1,14 +1,12 @@
-# HealthTech Protocol · Clinical Arc
+# Agentic Hackathon Arc · HealthTech Protocol
 
-> **Workspace:** This tree lives under **`Agentic Hackathon Arc`** — use this folder for ongoing hackathon development, commits, and running `npm run dev` / `npm run server`. Treat **`Clinical Arc`** (sibling folder under Documents) as **read-only reference** unless you intentionally sync changes back.
+> **Workspace:** This repo is the **`agentic-hackathon-arc`** package — develop, commit, and run **`npm run dev`** / **`npm run server`** here. Treat **`Clinical Arc`** (sibling folder under Documents) as **read-only reference** unless you intentionally sync changes back.
 
-**Frontend (hackathon scope):** **`/`** and **`/nhs`** — home (wallet, faucet, optional bootstrap); **`/nhs/neighbourhood-insights`** — OpenEHR + artificial HES + SNOMED + x402 demo. Any other path (e.g. old `/nhs/gp-access`) shows the **same home** — those screens are not linked.
+**Frontend in this build:** only **`/nhs/neighbourhood-insights`** mounts the full **Neighbourhood health plan** app (OpenEHR + artificial HES + SNOMED + x402, transaction log, facilitator choice). **`/`**, **`/nhs`**, and **every other path** (including `/nhs/gp-access`, `/nhs/transactions`, etc.) render the **same hackathon hub** — wallet shell + CTA to the neighbourhood demo. There are **no** separate React pages for GP access, care plans, or a global NHS transactions screen in this tree; those paths exist for bookmark compatibility and match **`NhsShell`** “Home” context only.
 
-**HealthTech Protocol** is the open **pattern stack** for this NHS app: verifiable payments, session metering, care pathways, remote monitoring, and AI-assisted workflows—**settled on [Arc](https://docs.arc.network/arc/references/connect-to-arc)** with **USDC nanopayments** via [Circle Gateway](https://developers.circle.com/gateway/nanopayments) and the **x402** HTTP payment protocol ([overview](https://developers.circle.com/gateway/nanopayments/concepts/x402)).
+**HealthTech Protocol** is the open **pattern stack** for verifiable payments and care-adjacent flows—**settled on [Arc](https://docs.arc.network/arc/references/connect-to-arc)** with **USDC nanopayments** via [Circle Gateway](https://developers.circle.com/gateway/nanopayments) and **x402** ([overview](https://developers.circle.com/gateway/nanopayments/concepts/x402)). The Express server still carries a broad route surface (NHS, neighbourhood, gateways, etc.); **Treat [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md) as the API / behavior contract** where you wire clients or tests.
 
-This is a **reference implementation**: React (Vite) front ends, a Node/Express API, and production-style persistence for NHS flows. **Treat [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md) as the behavioral contract** for routes, endpoints, and testing notes.
-
-**Primary remote:** **[arunnadarasa/clinicalarc](https://github.com/arunnadarasa/clinicalarc)**. **Hackathon demo mirror:** **[arunnadarasa/healtharcdemo](https://github.com/arunnadarasa/healtharcdemo)** (Agentic Hackathon Arc). **NHS / hackathon notes:** [`OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md`](./OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md). **Data safety:** use **dummy or synthetic** patient data in demos only — never real patient-identifiable data.
+**Canonical upstream:** **[arunnadarasa/clinicalarc](https://github.com/arunnadarasa/clinicalarc)**. **This hackathon checkout / demo remote:** **[arunnadarasa/healtharcdemo](https://github.com/arunnadarasa/healtharcdemo)**. **Notes:** [`OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md`](./OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md). **Data safety:** use **dummy or synthetic** patient data in demos only — never real patient-identifiable data.
 
 ---
 
@@ -16,9 +14,9 @@ This is a **reference implementation**: React (Vite) front ends, a Node/Express 
 
 | Layer | Role |
 |--------|------|
-| **Clinical Arc (`/` · `/nhs/*`)** | **Core product:** NHS-aligned hub and flows—wallet identity, GP access, care plans, social prescribing, neighbourhood teams, monitoring, transactions. |
-| **Neighbourhood health plan (`/nhs/neighbourhood-insights`)** | **Hackathon:** **openEHR** (EHRbase AQL via BFF), synthetic **artificial HES** LSOA aggregates, **SNOMED CT** browser references ([IHTSDO](https://github.com/IHTSDO)), **Arc** + **USDC** nanopayments (**x402**), optional **Featherless** narrative, **Circle Modular** panel. |
-| **Backend (`server/`)** | Express API: **`/api/nhs/*`**, **`/api/neighbourhood/*`**, **`/api/openehr/*`**, **`/api/circle-modular`** (proxy). |
+| **Hackathon hub (`/` · `/nhs` · other `/nhs/*` except neighbourhood)** | **Wallet + funnel** to the neighbourhood demo (`NhsHubApp` + shared `NhsShell`). |
+| **Neighbourhood health plan (`/nhs/neighbourhood-insights`)** | **Hackathon app:** **openEHR** (EHRbase AQL via BFF), synthetic **artificial HES** LSOA aggregates, **SNOMED CT** ([IHTSDO](https://github.com/IHTSDO)), **Arc** + **USDC** (**x402**), optional **Featherless** narrative, **Circle Modular**, **Thirdweb** facilitator option where configured. |
+| **Backend (`server/`)** | Express: **`/api/nhs/*`**, **`/api/neighbourhood/*`**, **`/api/openehr/*`**, **`/api/snomed/*`**, **`POST /api/circle-modular`**, plus many optional gateway routes — see **`GET /openapi.json`**. |
 
 **Artificial HES:** run `npm run ingest:hes` (set `HES_SAMPLE_DIR` to your `artificial_hes_ae_*` folder). Data is **synthetic** — see NHS sample README.
 
@@ -29,7 +27,7 @@ This is a **reference implementation**: React (Vite) front ends, a Node/Express 
 ## Tech stack
 
 - **Frontend:** React 19, TypeScript, Vite 8  
-- **Payments:** **Circle Gateway** x402 (`@circle-fin/x402-batching`), **x402** stack (`@x402/core`, `@x402/fetch`, `@x402/evm`), **viem** + **Arc Testnet** (`arcTestnet`, chain id **5042002**)  
+- **Payments:** **Circle Gateway** x402 (`@circle-fin/x402-batching`), **x402** stack (`@x402/core`, `@x402/fetch`, `@x402/evm`), optional **Thirdweb** settlement paths where enabled, **viem** + **Arc Testnet** (`arcTestnet`, chain id **5042002**) — see [`docs/ARC_X402_NOTES.md`](./docs/ARC_X402_NOTES.md)  
 - **Backend:** Node.js, Express 5  
 - **Docs:** [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md), [`docs/ARC_X402_NOTES.md`](./docs/ARC_X402_NOTES.md), [`docs/OPENAPI_DISCOVERY.md`](./docs/OPENAPI_DISCOVERY.md)  
 - **Landing / Lovable handoff:** [`HEALTH_TECH_PROTOCOL_AZ.md`](./HEALTH_TECH_PROTOCOL_AZ.md)  
@@ -64,41 +62,35 @@ If the UI shows **`Cannot POST /api/...`**, restart the backend on **8787**. Qui
 
 ---
 
-## Routes (selected)
-
-### NHS hub
+## Routes (this build)
 
 | Path | Purpose |
 |------|---------|
-| `/` · `/nhs` | **NHS hub** |
-| `/nhs/gp-access` | GP access requests |
-| `/nhs/care-plans` | Care plans |
-| `/nhs/social-prescribing` | Social prescribing |
-| `/nhs/neighbourhood-teams` | Neighbourhood coordination |
-| `/nhs/monitoring` | Remote monitoring |
-| `/nhs/transactions` | Transaction history |
-| `/nhs/neighbourhood-insights` | Artificial HES aggregates + OpenEHR AQL + optional LLM (x402) |
+| `/nhs/neighbourhood-insights` | **Neighbourhood health plan** — HES aggregates, OpenEHR BFF, SNOMED tools, x402-paid actions, **transaction log** (paginated), facilitator preference. |
+| **`/`** · **`/nhs`** · **any other path** (e.g. `/nhs/gp-access`) | **Same hackathon hub** — connect wallet, faucet, link to neighbourhood demo only (`src/main.tsx` + `src/hubRoutes.ts`). |
 
-**API:** **`/api/nhs/*`**, **`/api/neighbourhood/*`**, **`/api/openehr/*`** — **`GET /openapi.json`** for discovery.
+**Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`**, **`/api/openehr/*`**, **`/api/snomed/*`**, **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
 
 ## Quick start
 
 ```bash
-git clone https://github.com/arunnadarasa/clinicalarc.git
-cd clinicalarc
+git clone https://github.com/arunnadarasa/healtharcdemo.git
+cd healtharcdemo
 npm install
 cp .env.example .env
-# Edit .env: API keys, X402_SELLER_ADDRESS / seller, third-party URLs as needed.
+# Edit .env: API keys, X402_SELLER_ADDRESS / seller, EHRbase URL, third-party URLs as needed.
 
 npm run server    # Terminal 1 — API (default 8787)
-npm run dev       # Terminal 2 — Vite (proxies /api)
+npm run dev       # Terminal 2 — Vite (proxies /api and /openapi.json)
 ```
 
 Or: `npm run dev:full`
 
-Open **http://localhost:5173/** (NHS hub) or **http://localhost:5173/nhs/gp-access**.
+Open **http://localhost:5173/** (hub) or go straight to **http://localhost:5173/nhs/neighbourhood-insights**.
 
-**Production build:** `npm run build` then `npm run preview` (API still needs `npm run server` or your host).
+Upstream **Clinical Arc** clone (if you track that repo instead): `git clone https://github.com/arunnadarasa/clinicalarc.git` — use the same `npm install` / `.env` / dual-process flow.
+
+**Production build:** `npm run build` (runs **`build:llm`** first) then `npm run preview` (API still needs `npm run server` or your host).
 
 ---
 
@@ -116,7 +108,7 @@ If you are new to **x402**, **Circle Gateway**, or **Arc Testnet**, read this be
 
    Those transactions **fund and authorize the Gateway**. They are **not** the same as “one on-chain transaction every time you click Save” in the NHS UI—many x402 flows **batch or settle** without a separate user transaction per HTTP request.
 
-4. **Transactions page: Audit vs on-chain.** Under **/nhs/transactions**, **On-chain** means we parsed a **tx hash** and can link to the explorer. **Audit** means we logged the request (and often a **reference id**) without a usable hash in the response—**that does not prove** the x402 payment failed. Use **Wallet on explorer** on testnet when you need to inspect your address manually.
+4. **Transaction log: Audit vs on-chain.** In this repo, the **transaction log** for paid neighbourhood actions lives on **`/nhs/neighbourhood-insights`** (not a separate `/nhs/transactions` page). **On-chain** rows include a **tx hash** you can open on the explorer; **Audit** rows logged the request without a stored hash—**that does not prove** the x402 payment failed. Use **Wallet on explorer** on testnet when you need to inspect your address manually.
 
 5. **More reading.** Practical pitfalls and session notes: **[`CLINICALARC_X402_AGENT_SESSION.md`](./CLINICALARC_X402_AGENT_SESSION.md)**. NHS routes and behavior: **[`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md)**. Tribal debugging: **[`CLAWHUB.md`](./CLAWHUB.md)**.
 
@@ -166,10 +158,10 @@ Typical groups: **Arc / x402** and NHS runtime flags — see `.env.example`.
 
 ## Contributing
 
-1. Fork **`https://github.com/arunnadarasa/clinicalarc`**  
+1. Fork **[healtharcdemo](https://github.com/arunnadarasa/healtharcdemo)** (this tree) or **[clinicalarc](https://github.com/arunnadarasa/clinicalarc)** (upstream), depending on where you send PRs  
 2. Configure `.env` for the use cases you need  
 3. Extend `server/index.js` or add `src/*App.tsx` + route in `src/main.tsx` and **`src/hubRoutes.ts`**  
-4. After doc edits that feed **`llm-full.txt`**, run **`npm run build:llm`** before committing  
+4. After doc edits that feed **`llm-full.txt`**, run **`npm run build:llm`** before committing (or **`npm run build`**, which invokes it)  
 
 ---
 
@@ -179,4 +171,4 @@ This project is licensed under the MIT License. See [`LICENSE`](./LICENSE).
 
 ---
 
-**HealthTech Protocol** · **Clinical Arc** — *Arc Testnet + Circle Gateway x402 for health use cases.*
+**Agentic Hackathon Arc** · **HealthTech Protocol** — *Arc Testnet + Circle Gateway x402 for health use cases.*
