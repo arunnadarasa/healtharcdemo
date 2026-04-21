@@ -1,0 +1,83 @@
+/**
+ * Optional [Snowstorm](https://github.com/IHTSDO/snowstorm) FHIR client — terminology server must be running and SNOMED CT loaded for meaningful lookups.
+ */
+function baseUrl() {
+  return (process.env.SNOWSTORM_URL || '').trim().replace(/\/$/, '')
+}
+
+export function isSnowstormConfigured() {
+  return baseUrl().length > 0
+}
+
+/**
+ * @returns {Promise<object>}
+ */
+export async function getSnowstormStatus() {
+  const base = baseUrl()
+  if (!base) {
+    return {
+      configured: false,
+      note: 'Set SNOWSTORM_URL (e.g. http://localhost:8080) when Snowstorm is running (see docker-compose.snowstorm.yml).',
+      docs: 'https://github.com/IHTSDO/snowstorm',
+    }
+  }
+  const probes = [`${base}/actuator/health`, `${base}/`]
+  for (const url of probes) {
+    try {
+      const ac = new AbortController()
+      const t = setTimeout(() => ac.abort(), 4000)
+      const res = await fetch(url, { signal: ac.signal })
+      clearTimeout(t)
+      let body = null
+      const text = await res.text()
+      try {
+        body = text ? JSON.parse(text) : null
+      } catch {
+        body = { raw: text.slice(0, 300) }
+      }
+      if (res.ok || res.status === 401) {
+        return {
+          configured: true,
+          reachable: true,
+          url: base,
+          probe: url,
+          status: res.status,
+          body,
+        }
+      }
+    } catch (e) {
+      /* try next probe */
+    }
+  }
+  return {
+    configured: true,
+    reachable: false,
+    url: base,
+    error: 'Snowstorm did not respond to health probes. Is Docker Compose up?',
+  }
+}
+
+/**
+ * FHIR R4 CodeSystem $lookup for SNOMED CT (requires SNOMED content loaded in Snowstorm).
+ * @param {string} conceptId - SNOMED concept id (digits only)
+ */
+export async function fhirLookupSnomedConcept(conceptId) {
+  const base = baseUrl()
+  if (!base) {
+    return { ok: false, status: 503, body: { error: 'SNOWSTORM_URL not set' } }
+  }
+  const u = new URL(`${base}/fhir/CodeSystem/$lookup`)
+  u.searchParams.set('system', 'http://snomed.info/sct')
+  u.searchParams.set('code', String(conceptId))
+  const res = await fetch(u.toString(), {
+    headers: { Accept: 'application/fhir+json' },
+  })
+  const text = await res.text()
+  let json
+  try {
+    json = text ? JSON.parse(text) : null
+  } catch {
+    json = { raw: text.slice(0, 8000) }
+  }
+  return { ok: res.ok, status: res.status, body: json }
+}

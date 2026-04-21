@@ -1,0 +1,541 @@
+import { useCallback, useEffect, useState } from 'react'
+import NhsShell from './NhsShell'
+import { apiPost, apiGet } from './nhsApi'
+import { CircleModularPanel } from './components/CircleModularPanel'
+import type { NhsNetwork, NhsRole } from './nhsSession'
+import {
+  explorerAddressUrl,
+  explorerUrl,
+  listNhsTxHistoryNeighbourhoodInsights,
+  NEIGHBOURHOOD_X402_PRICE_DISPLAY,
+  paidDisplayForNeighbourhoodEndpoint,
+  type NhsTxItem,
+} from './nhsTxHistory'
+import {
+  getX402FacilitatorPreference,
+  setX402FacilitatorPreference,
+  type X402FacilitatorId,
+} from './x402FacilitatorPreference'
+
+type HealthJson = {
+  ok?: boolean
+  sqlite?: { aeRows?: number; opRows?: number; apcRows?: number }
+  ehrbase?: unknown
+  note?: string
+}
+
+type IntegrationContext = {
+  ok?: boolean
+  time?: string
+  hackathon?: {
+    openEhr?: { summary?: string; bffPaths?: string[] }
+    payments?: { summary?: string; chainId?: number; currency?: string }
+    sampleData?: { summary?: string; ingest?: string }
+    snomedCt?: {
+      summary?: string
+      browser?: string
+      ihtsdoGithub?: string
+      snowstorm?: {
+        repo?: string
+        dockerCompose?: string
+        env?: string
+        apiPaths?: string[]
+        fhir?: string
+        status?: {
+          configured?: boolean
+          reachable?: boolean
+          url?: string
+          error?: string
+          note?: string
+        }
+      }
+    }
+    references?: Array<{
+      conceptId: string
+      term: string
+      useCase: string
+      browserUrl: string
+    }>
+  }
+}
+
+const DEFAULT_AQL = `SELECT e/ehr_id/value
+FROM EHR e
+LIMIT 10`
+
+type NhsSession = { role: NhsRole; wallet: string; network: NhsNetwork }
+
+const TX_LOG_PAGE_SIZE = 10
+
+function NeighbourhoodInsightsGrid({
+  session,
+  payLabel,
+  health,
+  integration,
+  x402Provider,
+  onX402ProviderChange,
+}: {
+  session: NhsSession
+  payLabel: string
+  health: string
+  integration: IntegrationContext | null
+  x402Provider: X402FacilitatorId
+  onX402ProviderChange: (v: X402FacilitatorId) => void
+}) {
+  const [lsoa, setLsoa] = useState('')
+  const [aql, setAql] = useState(DEFAULT_AQL)
+  const [out, setOut] = useState<string>('')
+  const [busy, setBusy] = useState(false)
+  const [txRows, setTxRows] = useState<NhsTxItem[]>(() =>
+    listNhsTxHistoryNeighbourhoodInsights(session.network),
+  )
+  const [txPage, setTxPage] = useState(1)
+
+  const refreshTxLog = useCallback(() => {
+    setTxRows(listNhsTxHistoryNeighbourhoodInsights(session.network))
+    setTxPage(1)
+  }, [session.network])
+
+  useEffect(() => {
+    refreshTxLog()
+  }, [refreshTxLog])
+
+  const txTotalPages = txRows.length === 0 ? 0 : Math.ceil(txRows.length / TX_LOG_PAGE_SIZE)
+  const txPageSafe = txTotalPages === 0 ? 1 : Math.min(txPage, txTotalPages)
+  const txPageStart = (txPageSafe - 1) * TX_LOG_PAGE_SIZE
+  const txPageRows = txRows.slice(txPageStart, txPageStart + TX_LOG_PAGE_SIZE)
+
+  useEffect(() => {
+    if (txRows.length === 0) {
+      setTxPage(1)
+      return
+    }
+    const max = Math.ceil(txRows.length / TX_LOG_PAGE_SIZE)
+    setTxPage((p) => Math.min(p, max))
+  }, [txRows.length])
+
+  const wallet = session.wallet
+
+  return (
+    <section className="grid">
+      <article className="card">
+        <h2>x402 settlement</h2>
+        <p className="note">
+          Paid <strong>OpenEHR</strong>, <strong>LSOA</strong>, and <strong>summary</strong> use your choice. NHS
+          routes under <code>/api/nhs/</code> always use <strong>Circle Gateway</strong>.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+          <label htmlFor="x402-facilitator-select" className="note">
+            Provider
+          </label>
+          <select
+            id="x402-facilitator-select"
+            value={x402Provider}
+            onChange={(e) => onX402ProviderChange(e.target.value as X402FacilitatorId)}
+          >
+            <option value="circle">Circle Gateway (batch + deposit)</option>
+            <option value="thirdweb">Thirdweb (EIP-3009 exact)</option>
+          </select>
+        </div>
+      </article>
+      <article className="card">
+        <h2>Hackathon integration</h2>
+        <p className="note">
+          <strong>OpenEHR</strong> via EHRbase AQL (server BFF). <strong>Arc</strong> chain{' '}
+          <code>5042002</code>. <strong>USDC</strong> nanopayments via HTTP 402 / x402 ({payLabel}). Sample data:
+          ingested artificial HES → SQLite for LSOA views.
+        </p>
+        {integration?.hackathon?.snomedCt?.browser ? (
+          <p className="note">
+            <strong>SNOMED CT:</strong>{' '}
+            <a href={integration.hackathon.snomedCt.browser} target="_blank" rel="noreferrer">
+              SNOMED International Browser
+            </a>
+            . Tooling org:{' '}
+            <a href={integration.hackathon.snomedCt.ihtsdoGithub} target="_blank" rel="noreferrer">
+              IHTSDO on GitHub
+            </a>
+            .
+          </p>
+        ) : null}
+        {integration?.hackathon?.references?.length ? (
+          <ul className="note" style={{ marginTop: '0.5rem', paddingLeft: '1.25rem' }}>
+            {integration.hackathon.references.map((r) => (
+              <li key={r.conceptId}>
+                <a href={r.browserUrl} target="_blank" rel="noreferrer">
+                  {r.conceptId}
+                </a>{' '}
+                — {r.term}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {integration?.hackathon?.snomedCt?.snowstorm?.repo ? (
+          <div className="note" style={{ marginTop: '0.75rem' }}>
+            <p>
+              <strong>Snowstorm</strong> (
+              <a href={integration.hackathon.snomedCt.snowstorm.repo} target="_blank" rel="noreferrer">
+                IHTSDO/snowstorm
+              </a>
+              ): optional local terminology server (FHIR <code>$lookup</code>).{' '}
+              {integration.hackathon.snomedCt.snowstorm.status?.reachable ? (
+                <span>Status: reachable at {integration.hackathon.snomedCt.snowstorm.status?.url ?? '—'}.</span>
+              ) : integration.hackathon.snomedCt.snowstorm.status?.configured === false ? (
+                <span>Set {integration.hackathon.snomedCt.snowstorm.env ?? 'SNOWSTORM_URL'} and run Docker Compose.</span>
+              ) : (
+                <span>Configured but not reachable — check Docker.</span>
+              )}
+            </p>
+            <div className="actions" style={{ marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true)
+                  setOut('')
+                  const res = await fetch('/api/snomed/health')
+                  const j = await res.json()
+                  setOut(JSON.stringify(j, null, 2))
+                  setBusy(false)
+                }}
+              >
+                GET /api/snomed/health
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true)
+                  setOut('')
+                  const res = await fetch('/api/snomed/lookup/50849002')
+                  const j = await res.json()
+                  setOut(JSON.stringify(j, null, 2))
+                  setBusy(false)
+                }}
+              >
+                FHIR lookup 50849002
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </article>
+
+      <article className="card">
+        <h2>Data safety</h2>
+        <p className="note">
+          Artificial HES does not preserve relationships between fields (NHS Digital). This UI is for
+          interoperability and nanopayment demos only — not validated population health models.
+        </p>
+      </article>
+
+      <CircleModularPanel />
+
+      <article className="card">
+        <h2>Service health</h2>
+        <pre className="log">{health || 'Loading…'}</pre>
+      </article>
+
+      <article className="card">
+        <h2>Paid: OpenEHR AQL (EHRbase BFF)</h2>
+        <p className="note">
+          Primary <strong>openEHR</strong> path: server proxies AQL to EHRbase (credentials never in the
+          browser). ≤ $0.01 per request on Arc Testnet ({payLabel}).
+        </p>
+        <textarea
+          className="log"
+          style={{ width: '100%', minHeight: '6rem' }}
+          value={aql}
+          onChange={(e) => setAql(e.target.value)}
+        />
+        <div className="actions">
+          <button
+            type="button"
+            disabled={!session.wallet || busy}
+            onClick={async () => {
+              setBusy(true)
+              setOut('')
+              const res = await apiPost<unknown>(
+                '/api/openehr/query/aql',
+                session.role,
+                session.wallet,
+                { q: aql.trim() },
+                { network: session.network },
+              )
+              setOut(res.ok ? JSON.stringify(res.data, null, 2) : res.error)
+              if (res.ok) refreshTxLog()
+              setBusy(false)
+            }}
+          >
+            Run paid AQL
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={async () => {
+              const res = await apiGet<unknown>(
+                '/api/openehr/health',
+                session.role,
+                session.wallet,
+                { network: session.network },
+              )
+              setOut(res.ok ? JSON.stringify(res.data, null, 2) : res.error)
+            }}
+          >
+            Check EHRbase (unpaid)
+          </button>
+        </div>
+      </article>
+
+      <article className="card">
+        <h2>Paid: LSOA aggregates (artificial HES)</h2>
+        <p className="note">
+          Synthetic sample data in SQLite — aligns with neighbourhood demand signals; responses include{' '}
+          <strong>SNOMED CT</strong> reference hooks for interoperability demos.
+        </p>
+        <label>
+          LSOA filter (optional)
+          <input value={lsoa} onChange={(e) => setLsoa(e.target.value)} placeholder="e.g. E01022770" />
+        </label>
+        <div className="actions">
+          <button
+            type="button"
+            disabled={!session.wallet || busy}
+            onClick={async () => {
+              setBusy(true)
+              setOut('')
+              const res = await apiPost<unknown>(
+                '/api/neighbourhood/insights/lsoa',
+                session.role,
+                session.wallet,
+                { lsoa: lsoa.trim() || undefined },
+                { network: session.network },
+              )
+              setOut(res.ok ? JSON.stringify(res.data, null, 2) : res.error)
+              if (res.ok) refreshTxLog()
+              setBusy(false)
+            }}
+          >
+            Run paid aggregate
+          </button>
+        </div>
+      </article>
+
+      <article className="card">
+        <h2>Paid: LLM summary (Featherless)</h2>
+        <p className="note">
+          Narrative for neighbourhood teams; prompt includes openEHR + SNOMED framing. Requires{' '}
+          <code>FEATHERLESS_API_KEY</code> on the server; optional <code>FEATHERLESS_MODEL</code> (default Qwen — some
+          Llama models need Hugging Face linked in Featherless).
+        </p>
+        <div className="actions">
+          <button
+            type="button"
+            disabled={!session.wallet || busy}
+            onClick={async () => {
+              setBusy(true)
+              setOut('')
+              const res = await apiPost<unknown>(
+                '/api/neighbourhood/insights/summary',
+                session.role,
+                session.wallet,
+                { lsoa: lsoa.trim() || undefined },
+                { network: session.network },
+              )
+              setOut(res.ok ? JSON.stringify(res.data, null, 2) : res.error)
+              if (res.ok) refreshTxLog()
+              setBusy(false)
+            }}
+          >
+            Run paid summary
+          </button>
+        </div>
+      </article>
+
+      {out ? (
+        <article className="card">
+          <h2>Last response</h2>
+          <pre className="log">{out}</pre>
+        </article>
+      ) : null}
+
+      <article className="card" style={{ gridColumn: '1 / -1' }}>
+        <h2>Margin &amp; gas (why x402 on Arc)</h2>
+        <p className="note">
+          <strong>Traditional per-tx gas</strong> on many EVM networks can cost <strong>far more than a few cents</strong>{' '}
+          of USDC for a single transfer. If each <strong>HTTP API call</strong> mapped 1:1 to a <strong>standalone</strong>{' '}
+          on-chain payment at full user-paid gas, the <strong>fee would often exceed the price</strong> of a{' '}
+          <strong>{NEIGHBOURHOOD_X402_PRICE_DISPLAY}</strong> micropayment — the product has <strong>negative margin</strong>{' '}
+          unless you raise prices or stop charging per request.
+        </p>
+        <p className="note">
+          This demo uses <strong>x402</strong> with <strong>USDC (EIP-3009)</strong> on <strong>Arc Testnet</strong>, plus{' '}
+          <strong>Circle Gateway</strong> (batching / deposit) or <strong>Thirdweb</strong> (facilitator settlement) so the{' '}
+          <strong>unit economics</strong> can work at micro prices: <strong>authorization</strong> and{' '}
+          <strong>settlement</strong> are designed for <strong>high-volume, low-value</strong> API calls instead of paying{' '}
+          full legacy-style gas <em>per click</em>.
+        </p>
+      </article>
+
+      <article className="card" style={{ gridColumn: '1 / -1' }}>
+        <h2>Transaction log (this page)</h2>
+        <p className="note tx-note-tight">
+          Successful paid POSTs to OpenEHR AQL, LSOA aggregate, and LLM summary are appended to{' '}
+          <strong>local storage</strong> (same ledger as other NHS x402 flows). Current network:{' '}
+          <code>{session.network}</code>. List price per call: <strong>{NEIGHBOURHOOD_X402_PRICE_DISPLAY}</strong> USDC (gate
+          on server). <strong>On-chain</strong> rows link to Arcscan; <strong>Audit</strong> rows still reflect the same
+          list price — they only lack a stored <code>/tx/</code> hash; use <em>Wallet on explorer</em> to find the payment.
+        </p>
+        <div className="actions" style={{ flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+          <button type="button" className="secondary" onClick={() => refreshTxLog()}>
+            Refresh log
+          </button>
+          {txRows.length > 0 ? (
+            <>
+              <span className="note" style={{ margin: 0 }}>
+                Page <strong>{txPageSafe}</strong> of <strong>{txTotalPages}</strong>
+                {' · '}
+                {txRows.length} total · Showing {txPageRows.length} of {txRows.length} (newest first)
+              </span>
+              <button
+                type="button"
+                className="secondary"
+                disabled={txPageSafe <= 1}
+                onClick={() => setTxPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={txPageSafe >= txTotalPages}
+                onClick={() => setTxPage((p) => Math.min(txTotalPages, p + 1))}
+              >
+                Next
+              </button>
+            </>
+          ) : null}
+        </div>
+        {txRows.length === 0 ? (
+          <p className="note">No paid calls from this page yet for this network.</p>
+        ) : (
+          <div className="tx-table-wrap">
+            <table className="tx-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Endpoint</th>
+                  <th>Type</th>
+                  <th>Cost (list)</th>
+                  <th>Reference</th>
+                  <th>Explorer</th>
+                </tr>
+              </thead>
+              <tbody>
+                {txPageRows.map((row) => {
+                  const kind = row.kind ?? (row.txHash.startsWith('0x') ? 'chain' : 'audit')
+                  const costDisplay =
+                    row.paidDisplay ?? paidDisplayForNeighbourhoodEndpoint(row.endpoint) ?? '—'
+                  const txLink = explorerUrl(row.network, row.txHash)
+                  const refLabel =
+                    kind === 'audit' && row.auditRef
+                      ? row.auditRef
+                      : row.txHash.length > 22
+                        ? `${row.txHash.slice(0, 10)}…${row.txHash.slice(-8)}`
+                        : row.txHash
+                  const walletExplorer = wallet ? explorerAddressUrl(row.network, wallet) : null
+                  return (
+                    <tr key={`${row.txHash}-${row.createdAt}-${row.endpoint}`}>
+                      <td>{new Date(row.createdAt).toLocaleString()}</td>
+                      <td>
+                        <code>{row.endpoint}</code>
+                      </td>
+                      <td>
+                        <span className={kind === 'chain' ? 'tx-badge tx-badge--chain' : 'tx-badge tx-badge--audit'}>
+                          {kind === 'chain' ? 'On-chain' : 'Audit'}
+                        </span>
+                      </td>
+                      <td>
+                        <span title="Server-listed gate price for this paid route (not network gas shown separately)">
+                          {costDisplay}
+                        </span>
+                      </td>
+                      <td>
+                        <code title={row.txHash}>{refLabel}</code>
+                      </td>
+                      <td className="tx-explorer-cell">
+                        {txLink ? (
+                          <a href={txLink} target="_blank" rel="noreferrer" title="Arc transaction detail">
+                            View transaction
+                          </a>
+                        ) : walletExplorer ? (
+                          <a
+                            href={walletExplorer}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Wallet on Arc explorer — find the payment in the transaction list"
+                          >
+                            Wallet on explorer
+                          </a>
+                        ) : (
+                          <span className="tx-muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </article>
+    </section>
+  )
+}
+
+export default function NhsNeighbourhoodInsightsApp() {
+  const [health, setHealth] = useState<string>('')
+  const [integration, setIntegration] = useState<IntegrationContext | null>(null)
+  const [x402Provider, setX402Provider] = useState<X402FacilitatorId>(() => getX402FacilitatorPreference())
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch('/api/neighbourhood/insights/health')
+      const j = (await res.json()) as HealthJson
+      setHealth(JSON.stringify(j, null, 2))
+    })()
+  }, [])
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch('/api/neighbourhood/insights/context')
+      const j = (await res.json()) as IntegrationContext
+      if (j?.hackathon) setIntegration(j)
+    })()
+  }, [])
+
+  const payLabel = x402Provider === 'thirdweb' ? 'thirdweb x402' : 'Circle Gateway x402'
+
+  return (
+    <NhsShell
+      title="Neighbourhood health plan"
+      subtitle="OpenEHR (EHRbase) AQL, synthetic artificial HES aggregates, SNOMED CT browser links, Arc Testnet USDC via x402 — demo only."
+    >
+      {(session) => (
+        <NeighbourhoodInsightsGrid
+          session={session}
+          payLabel={payLabel}
+          health={health}
+          integration={integration}
+          x402Provider={x402Provider}
+          onX402ProviderChange={(v) => {
+            setX402FacilitatorPreference(v)
+            setX402Provider(v)
+          }}
+        />
+      )}
+    </NhsShell>
+  )
+}

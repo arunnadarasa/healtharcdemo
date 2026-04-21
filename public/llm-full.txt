@@ -1,0 +1,1288 @@
+# Clinical Arc / HealthTech Protocol — LLM context bundle
+
+**Purpose:** Single file to paste into an LLM system prompt, upload to a coding agent, or feed RAG — **full orientation** to this repository.
+
+**Generated:** 2026-04-20T23:31:45.747Z (re-run `npm run build:llm` after doc edits)
+
+**Download (running app):** `/llm-full.txt` from the dev server or production site.
+
+**In repo:** `public/llm-full.txt` (served as static file; also clone and open locally).
+
+---
+
+## How to use
+
+1. **ChatGPT / Claude / etc.:** Attach this file or paste relevant sections into project instructions.
+2. **Cursor / IDE agents:** @-mention `public/llm-full.txt` or paste the sections you need.
+3. **OpenClaw / automation:** Prefer `CLAWHUB.md` for tribal debugging + this bundle for full product/API context.
+
+## What’s inside (concatenated)
+
+The following sections are **verbatim** exports from the repo (order matters for context).
+
+---
+
+
+
+## >>> BEGIN FILE: README.md
+
+# HealthTech Protocol · Clinical Arc
+
+> **Workspace:** This tree lives under **`Agentic Hackathon Arc`** — use this folder for ongoing hackathon development, commits, and running `npm run dev` / `npm run server`. Treat **`Clinical Arc`** (sibling folder under Documents) as **read-only reference** unless you intentionally sync changes back.
+
+**Frontend (hackathon scope):** **`/`** and **`/nhs`** — home (wallet, faucet, optional bootstrap); **`/nhs/neighbourhood-insights`** — OpenEHR + artificial HES + SNOMED + x402 demo. Any other path (e.g. old `/nhs/gp-access`) shows the **same home** — those screens are not linked.
+
+**HealthTech Protocol** is the open **pattern stack** for this NHS app: verifiable payments, session metering, care pathways, remote monitoring, and AI-assisted workflows—**settled on [Arc](https://docs.arc.network/arc/references/connect-to-arc)** with **USDC nanopayments** via [Circle Gateway](https://developers.circle.com/gateway/nanopayments) and the **x402** HTTP payment protocol ([overview](https://developers.circle.com/gateway/nanopayments/concepts/x402)).
+
+This is a **reference implementation**: React (Vite) front ends, a Node/Express API, and production-style persistence for NHS flows. **Treat [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md) as the behavioral contract** for routes, endpoints, and testing notes.
+
+**Primary remote:** **[arunnadarasa/clinicalarc](https://github.com/arunnadarasa/clinicalarc)**. **NHS / hackathon notes:** [`OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md`](./OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md). **Data safety:** use **dummy or synthetic** patient data in demos only — never real patient-identifiable data.
+
+---
+
+## What this repo layers
+
+| Layer | Role |
+|--------|------|
+| **Clinical Arc (`/` · `/nhs/*`)** | **Core product:** NHS-aligned hub and flows—wallet identity, GP access, care plans, social prescribing, neighbourhood teams, monitoring, transactions. |
+| **Neighbourhood health plan (`/nhs/neighbourhood-insights`)** | **Hackathon:** **openEHR** (EHRbase AQL via BFF), synthetic **artificial HES** LSOA aggregates, **SNOMED CT** browser references ([IHTSDO](https://github.com/IHTSDO)), **Arc** + **USDC** nanopayments (**x402**), optional **Featherless** narrative, **Circle Modular** panel. |
+| **Backend (`server/`)** | Express API: **`/api/nhs/*`**, **`/api/neighbourhood/*`**, **`/api/openehr/*`**, **`/api/circle-modular`** (proxy). |
+
+**Artificial HES:** run `npm run ingest:hes` (set `HES_SAMPLE_DIR` to your `artificial_hes_ae_*` folder). Data is **synthetic** — see NHS sample README.
+
+**EHRbase (live AQL):** the BFF calls EHRbase at `EHRBASE_BASE_URL` (default `http://localhost:8080/ehrbase`). **Start the stack:** `npm run ehrbase:up` (same as `docker compose -f docker-compose.ehrbase.yml up -d`). Wait until the API responds — first boot can take a few minutes. **Credentials** must match the container: by default `EHRBASE_USER=ehrbase-user` and `EHRBASE_PASSWORD=SuperSecretPassword` (see `docker-compose.ehrbase.yml`). **Run the API** on port 8787 (`npm run server` or `npm run dev:full`) so `/api/neighbourhood/insights/health` can reach EHRbase. If Docker fails to parse `.env`, ensure every line is either `KEY=value` or starts with `#` (no stray text like `HES ingest:` without `#`). **Port 5432** is exposed for Postgres — if another Postgres uses 5432, stop it or change the host port in `docker-compose.ehrbase.yml`.
+
+---
+
+## Tech stack
+
+- **Frontend:** React 19, TypeScript, Vite 8  
+- **Payments:** **Circle Gateway** x402 (`@circle-fin/x402-batching`), **x402** stack (`@x402/core`, `@x402/fetch`, `@x402/evm`), **viem** + **Arc Testnet** (`arcTestnet`, chain id **5042002**)  
+- **Backend:** Node.js, Express 5  
+- **Docs:** [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md), [`docs/ARC_X402_NOTES.md`](./docs/ARC_X402_NOTES.md), [`docs/OPENAPI_DISCOVERY.md`](./docs/OPENAPI_DISCOVERY.md)  
+- **Landing / Lovable handoff:** [`HEALTH_TECH_PROTOCOL_AZ.md`](./HEALTH_TECH_PROTOCOL_AZ.md)  
+- **Agent / tribal knowledge:** [`CLAWHUB.md`](./CLAWHUB.md)  
+- **LLM context bundle:** [`public/llm-full.txt`](./public/llm-full.txt) — **regenerate:** `npm run build:llm`  
+
+### Local dev (Vite + API)
+
+| Command | What runs |
+|--------|------------|
+| `npm run dev` | Vite only — **proxies `/api` → `http://localhost:8787`** |
+| `npm run server` | Express API (default **port 8787**) |
+| `npm run dev:full` | Both (recommended for live x402 flows) |
+| `npm run ingest:hes` | Load artificial HES AE CSVs into `data/neighbourhood-hes.db` (set `HES_SAMPLE_DIR`) |
+| `npm run burst:hackathon` | 50× unpaid POST smoke (use with `NHS_ENABLE_PAYMENT_GATE=false`) |
+| `npm run snowstorm:up` | Optional [Snowstorm](https://github.com/IHTSDO/snowstorm) + Elasticsearch (`docker-compose.snowstorm.yml`, Snowstorm on **localhost:8081**) |
+
+Set **`SNOWSTORM_URL=http://localhost:8081`** and load a SNOMED CT RF2 release into Snowstorm for FHIR `$lookup` to return concepts ([loading SNOMED](https://github.com/IHTSDO/snowstorm/blob/master/docs/loading-snomed.md)). Public **SNOMED International Browser** still works without Snowstorm.
+
+If the UI shows **`Cannot POST /api/...`**, restart the backend on **8787**. Quick check: **`GET http://localhost:8787/openapi.json`**.
+
+**Hackathon submission video:** record a wallet payment in **Circle Developer Console** and the same tx on **testnet.arcscan.app**; use paid buttons on **`/nhs/neighbourhood-insights`** for Arc + x402 proof. Optional: [Circle MCP](https://developers.circle.com/ai/mcp) + [`llms-full.txt`](https://developers.circle.com/llms-full.txt) for codegen; [AIsa nanopayment-x402](https://github.com/AIsa-team/nanopayment-x402) as a client x402 reference.
+
+---
+
+## Arc Testnet (quick reference)
+
+- **Chain ID:** `5042002` (`eip155:5042002`)  
+- **Settlement:** Circle Gateway x402 + USDC-style nanopayments  
+- **Faucet:** [faucet.circle.com](https://faucet.circle.com) (linked from the app)  
+- **Explorer:** [testnet.arcscan.app](https://testnet.arcscan.app)  
+
+---
+
+## Routes (selected)
+
+### NHS hub
+
+| Path | Purpose |
+|------|---------|
+| `/` · `/nhs` | **NHS hub** |
+| `/nhs/gp-access` | GP access requests |
+| `/nhs/care-plans` | Care plans |
+| `/nhs/social-prescribing` | Social prescribing |
+| `/nhs/neighbourhood-teams` | Neighbourhood coordination |
+| `/nhs/monitoring` | Remote monitoring |
+| `/nhs/transactions` | Transaction history |
+| `/nhs/neighbourhood-insights` | Artificial HES aggregates + OpenEHR AQL + optional LLM (x402) |
+
+**API:** **`/api/nhs/*`**, **`/api/neighbourhood/*`**, **`/api/openehr/*`** — **`GET /openapi.json`** for discovery.
+
+## Quick start
+
+```bash
+git clone https://github.com/arunnadarasa/clinicalarc.git
+cd clinicalarc
+npm install
+cp .env.example .env
+# Edit .env: API keys, X402_SELLER_ADDRESS / seller, third-party URLs as needed.
+
+npm run server    # Terminal 1 — API (default 8787)
+npm run dev       # Terminal 2 — Vite (proxies /api)
+```
+
+Or: `npm run dev:full`
+
+Open **http://localhost:5173/** (NHS hub) or **http://localhost:5173/nhs/gp-access**.
+
+**Production build:** `npm run build` then `npm run preview` (API still needs `npm run server` or your host).
+
+---
+
+## For newcomers (wallet, Gateway, and on-chain activity)
+
+If you are new to **x402**, **Circle Gateway**, or **Arc Testnet**, read this before debugging “why did my wallet send a transaction?” or “why is my payment failing?”
+
+1. **Run two processes.** The UI is **Vite** (default **http://localhost:5173**); the API is **Express** on **8787**. Vite **proxies `/api`** to the API. Prefer **`npm run dev:full`**, or run **`npm run server`** and **`npm run dev`** in two terminals. If you see **`Cannot POST /api/...`** or Vite **proxy** errors, start the API **first**, then hard-refresh the browser. A quick API check: **`GET http://localhost:8787/openapi.json`**.
+
+2. **Use Arc Testnet in the wallet.** This app targets **Arc Testnet** (chain id **5042002**). Fund the wallet with **test USDC** from **[faucet.circle.com](https://faucet.circle.com)** (see also the Arc Testnet table above).
+
+3. **Gateway balance ≠ wallet balance.** Paying through Circle Gateway requires **USDC available inside the Gateway** for the app’s domain—not only USDC sitting in your EOA. Moving funds into the Gateway is done with on-chain contracts. On **[Arcscan](https://testnet.arcscan.app)** you will often see:
+   - **`approve`** on the USDC (`NativeFiatToken`) contract — authorizes the Gateway to pull USDC from your wallet. This is typically **one setup step** (until you change or revoke allowance).
+   - **`deposit`** — moves USDC from your wallet **into** the Gateway. You may **repeat** deposits when Gateway available balance is low; this repo can **auto-ensure** a minimum deposit before x402 (see **`.env.example`** and **[`docs/ARC_X402_NOTES.md`](./docs/ARC_X402_NOTES.md)**).
+
+   Those transactions **fund and authorize the Gateway**. They are **not** the same as “one on-chain transaction every time you click Save” in the NHS UI—many x402 flows **batch or settle** without a separate user transaction per HTTP request.
+
+4. **Transactions page: Audit vs on-chain.** Under **/nhs/transactions**, **On-chain** means we parsed a **tx hash** and can link to the explorer. **Audit** means we logged the request (and often a **reference id**) without a usable hash in the response—**that does not prove** the x402 payment failed. Use **Wallet on explorer** on testnet when you need to inspect your address manually.
+
+5. **More reading.** Practical pitfalls and session notes: **[`CLINICALARC_X402_AGENT_SESSION.md`](./CLINICALARC_X402_AGENT_SESSION.md)**. NHS routes and behavior: **[`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md)**. Tribal debugging: **[`CLAWHUB.md`](./CLAWHUB.md)**.
+
+---
+
+## Environment variables
+
+Copy **`.env.example`** → **`.env`**. Never commit **`.env`**.
+
+Typical groups: **Arc / x402** and NHS runtime flags — see `.env.example`.
+
+---
+
+## Agents & LLM context
+
+| Resource | Purpose |
+|----------|---------|
+| [`public/llm-full.txt`](./public/llm-full.txt) | Single-file bundle — **regenerate:** `npm run build:llm` |
+| [`CLAWHUB.md`](./CLAWHUB.md) | Debugging notes |
+| [`.github/copilot-instructions.md`](./.github/copilot-instructions.md) | Copilot hints |
+
+---
+
+## Repository layout
+
+```
+├── src/              # React apps; routes in main.tsx + hubRoutes.ts
+├── server/           # Express API (index.js, payments.js)
+├── public/           # Static assets; llm-full.txt generated here
+├── scripts/          # build-llm-full.mjs, …
+├── docs/             # ARC_X402_NOTES, OPENAPI_DISCOVERY, …
+├── .cursor/skills/clawhub/  # Cursor skill
+├── HEALTHTECH_USE_CASES.md
+├── CLAWHUB.md
+└── vite.config.ts    # dev proxy: /api → http://localhost:8787
+```
+
+---
+
+## Security & operations
+
+- Keep **secrets in `.env`** only.  
+- **Live mainnet** flows spend real assets — test on **testnet** first.  
+- Transaction hashes can be recorded locally; use **[testnet.arcscan.app](https://testnet.arcscan.app)** for Arc Testnet.
+
+---
+
+## Contributing
+
+1. Fork **`https://github.com/arunnadarasa/clinicalarc`**  
+2. Configure `.env` for the use cases you need  
+3. Extend `server/index.js` or add `src/*App.tsx` + route in `src/main.tsx` and **`src/hubRoutes.ts`**  
+4. After doc edits that feed **`llm-full.txt`**, run **`npm run build:llm`** before committing  
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [`LICENSE`](./LICENSE).
+
+---
+
+**HealthTech Protocol** · **Clinical Arc** — *Arc Testnet + Circle Gateway x402 for health use cases.*
+
+
+## <<< END FILE: README.md
+
+
+## >>> BEGIN FILE: CLAWHUB.md
+
+# ClawHub Learning Notes (Clinical Arc / HealthTech Protocol)
+
+## LLM context bundle (`llm-full.txt`)
+
+For **full-repo orientation** in one paste (ChatGPT, Claude, Cursor, OpenClaw): use **`public/llm-full.txt`**, built from README + this file + `HEALTHTECH_USE_CASES.md` + `HEALTH_TECH_PROTOCOL_AZ.md` + **`docs/ARC_X402_NOTES.md`** + **`docs/OPENAPI_DISCOVERY.md`** (when present).
+
+**Published skill (ClawHub):** [clawhub.ai/arunnadarasa/clinicalarc](https://clawhub.ai/arunnadarasa/clinicalarc) — install the Clinical Arc skill for IDE/OpenClaw; source of truth remains **`.cursor/skills/clawhub/`** in git. **OpenClaw (optional):** `openclaw plugins install @anyway-sh/anyway-openclaw` — documented in **`references/openclaw-clinical-tempo.md`**. **Ecosystem framing:** optional **`docs/ECOSYSTEM_SYNERGY.md`** when present.
+
+- **Regenerate:** `npm run build:llm` (runs automatically before `npm run build`).
+- **In the browser:** open **`/llm-full.txt`** or use the hub **“Download LLM context bundle”** button on `/`.
+- **In GitHub (raw `llm-full.txt`):** `https://raw.githubusercontent.com/arunnadarasa/clinicalarc/main/public/llm-full.txt`
+
+Keep **this file (`CLAWHUB.md`)** for debugging checklists and failures; pair it with `llm-full.txt` when an agent needs both product context and tribal knowledge. For **EVVM** depth, use upstream **`https://www.evvm.info/llms-full.txt`** (not vendored here).
+
+---
+
+This is a “tribal knowledge” file for quickly onboarding OpenClaw (and any future agent) to the Clinical Arc repository:
+
+- what the repo is (**HealthTech Protocol** reference stack on Arc + x402),
+- what succeeded,
+- what failed and why,
+- and the repeatable best practices that prevent re-learning the hard parts.
+
+---
+
+## What this repo is
+
+**HealthTech Protocol** (this repo’s framing) is the set of **interoperable payment + ops patterns** for **neighbourhood health and care coordination**—wallet identity, payment-gated service requests, care plans, referrals, monitoring, AgentMail/TIP-20 integrations—implemented with **Arc Testnet** settlement and **Circle Gateway x402** machine payments. **Legacy** event/dance demos (`/dance-extras`) use the same rails. Clinical Arc is the **reference superapp** that encodes those patterns in code.
+
+Clinical Arc is built around:
+
+- **Arc Testnet** (chain id 5042002) for nanopaid flows
+- **x402** (client/server-side handling of `402 Payment Required` challenges)
+- **Dedicated use-case routes** (hub + full-screen flows)
+- A **Node/Express backend** that verifies x402 receipts and proxies/handles integrations.
+
+Core docs to reuse:
+
+- `README.md` (high-level “superapp” framing + route list)
+- `HEALTHTECH_USE_CASES.md` (the flow-by-flow contract and API mappings)
+- `server/index.js` (the real implementation patterns and integration edge handling)
+
+---
+
+## Successes (what worked)
+
+1. **Arc + x402 on dance-extras live**  
+   - `curl` to `http://127.0.0.1:8787/api/dance-extras/live/judge-score/testnet` returns **402** until a browser wallet completes payment via Circle Gateway on Arc.  
+   - See **`docs/ARC_X402_NOTES.md`** and `/nhs/http-pay` for copy-paste examples.
+
+2. **Superapp README now reflects the real architecture**
+   - Added a “super app” definition that maps: hub vs dedicated routes vs backend vs integrations.
+   - Included the dedicated route table so explanations don’t drift from implementation.
+   - Documented quick start (`npm run server`, `npm run dev`, `npm run dev:full`) and environment guidance.
+
+3. **GitHub push worked after unrelated-history + README conflict**
+   - When the remote `main` already had commits, the first push failed (non-fast-forward).
+   - Pulling unrelated histories caused a `README.md` conflict.
+   - Resolution strategy: keep the README focused (short title/one-line description) and remove template bulk rather than trying to merge two incompatible README styles.
+
+4. **AgentMail “email” flow got to a working end-to-end pattern**
+   - Earlier attempts hit inbox scope mismatches (notably `Inbox not found`).
+   - The final working approach:
+     - the wallet pays **this backend** using **x402** (server charge),
+     - then the backend sends the email via **AgentMail’s API key endpoint** (`AGENTMAIL_API_KEY`).
+   - This preserves “wallet-paid UX” while avoiding fragile inbox scope behavior in passthrough mode.
+
+5. **`/dance-extras` live x402 + shared server handler**
+   - `POST /api/dance-extras/live/:flowKey/:network` runs the gateway gate then `executeDanceExtraFlow` so the seven core HealthTech scaffolds share one payment path.
+   - `GET /api/dance-extras/live` returns `flowKeys` — use it to verify the running Node process actually has the route (see failure §5).
+
+6. **AgentMail bot flow: always send `inbox_id`**
+   - `/api/ops/agentmail/send` requires `inbox_id` (or `AGENTMAIL_INBOX_ID` on the server).
+   - Demo default in the client: `streetkode@agentmail.to` via `src/agentmailDemo.ts` (`AGENTMAIL_DEMO_INBOX_ID`).
+
+7. **OpenAPI discovery (`GET /openapi.json`)**
+   - Express serves **OpenAPI 3.1** at **`/openapi.json`** (`server/openapi.mjs`) so agents can discover paid routes; **`DANCE_EXTRA_LIVE_AMOUNTS`** lives in **`openapi.mjs`** and is imported by **`server/index.js`** (single source of truth).
+   - Validate with **`npm run discovery`** while **`npm run server`** is running on **8787**. See **`docs/OPENAPI_DISCOVERY.md`** when present.
+
+8. **Server integration patterns are consistent**
+   - For `402`-capable third-party endpoints:
+     - if upstream returns `402`, the backend should pass that challenge back to the client (so `x402` can solve).
+   - For “paid endpoints then poll” integrations:
+     - use the correct auth header strategy for the paid + polling phases (x402 vs SIWX vs bearer-token style).
+
+9. **NHS routes: extracting the on-chain reference after x402 settlement**
+   - After the gateway verifies payment, the handler should surface a stable **`receiptRef`** / tx hash for audit — see **`server/nhs/payment.js`** (`resolvePaymentReceiptRef`) and **`server/nhs/router.js`**.
+   - The client prefers **`payload.receiptRef`** in **`src/nhsApi.ts`** (`txFromResponse`) so **Transactions** can show **On-chain** rows.
+
+10. **NHS `/nhs/tip20`: mint after factory create (`viem/tempo`)**  
+   - Factory **`createSync`** sets **`admin`** to the connected wallet; **mint** requires **`ISSUER_ROLE`**, which is **not** granted automatically — check with **`Actions.token.hasRole`** (`role: 'issuer'`) and, if missing, **`grantRole`** on the token contract before **`Actions.token.mintSync`**.  
+   - Prefer **`writeContractSync`** for a **single** `grantRole` call. **`Actions.token.grantRolesSync`** uses **`sendTransaction`** with batched `calls`, which on some chains can produce envelope type **`0x76`**; browser wallets + viem reject that path (`Invalid transaction envelope type: "0x76". Must be one of: 0x0, 0x1, 0x2, 0x4`).  
+   - Misleading reverts (e.g. “gas limit too high”) can appear when mint is unauthorized — fix roles first, not gas.  
+   - Implementation: **`src/tempoTip20Launch.ts`** (`mintTip20OnChain`), UI **`src/NhsTip20App.tsx`**.
+
+---
+
+## Failures (what broke) and how to recognize it
+
+### 1) GitHub push: remote already had commits
+
+**Symptom**
+- Push rejected with a non-fast-forward error.
+
+**Cause**
+- The local repo history and remote `origin/main` history did not share a common base.
+
+**Fix**
+- Pull with `--allow-unrelated-histories`, resolve conflicts, then push.
+- For docs conflicts, keep the README aligned to the repo’s current purpose instead of merging incompatible template text.
+
+### 2) README merge conflicts
+
+**Symptom**
+- `README.md` conflict markers appeared after merging unrelated histories.
+
+**Cause**
+- A template README on the remote conflicted with the locally-generated template/short description.
+
+**Fix**
+- Prefer a single coherent README rather than trying to “merge” two styles.
+- Keep the “superapp capability” content, route list, and setup instructions. Remove template bulk.
+
+### 3) AgentMail: `Inbox not found` / inbox scope mismatch
+
+**Symptom**
+- AgentMail send returns an error indicating the inbox doesn’t exist or isn’t accessible.
+
+**Common causes**
+- `AGENTMAIL_INBOX_ID` not set and no `inbox_id` provided in the request body.
+- Inbox ID mismatch vs the paid-scope the integration expects.
+- Using passthrough wallet-paid mode while the integration expects a specific inbox access scope.
+
+**Fix pattern that worked**
+- If `AGENTMAIL_API_KEY` is available:
+  - pay via x402 to this backend,
+  - send via AgentMail stable API endpoint using the API key,
+  - return the upstream result.
+
+### 4) x402 mismatch and recurring `402` loops
+
+**Symptom**
+- The frontend repeatedly encounters `402` (or can’t recover from an auth challenge).
+
+**Common causes**
+- Hitting the wrong base URL for the x402-capable endpoint.
+- Not preserving `402` challenge headers/body back to the `x402` client.
+- Forwarding the wrong headers for the solved/authorized phase.
+
+**Fix**
+- Ensure the backend returns the upstream `402` response directly (not a generic error).
+- Ensure “forwarding” of headers follows the solved payment stage (e.g. `payment`, `payment-receipt`).
+
+### 5) `Cannot POST /api/dance-extras/live/...` (HTML 404)
+
+**Symptom**
+- Telemetry shows `Cannot POST /api/dance-extras/live/<flow>/<network>` (Express default 404 HTML).
+
+**Cause**
+- Vite proxies `/api` to `http://localhost:8787`, but the **Express process on 8787 is an old build** (started before the live route existed) or isn’t this repo’s `server/index.js`.
+
+**Fix**
+- Restart the API: stop the old `node` process, run `npm run server` or `npm run dev:full`.
+- Verify: `GET http://localhost:8787/api/dance-extras/live` must return JSON with `flowKeys`. If that 404s, you’re still on the wrong/stale server.
+
+### 6) AgentMail: `Missing inbox_id for AgentMail send`
+
+**Symptom**
+- `400` with `Missing inbox_id for AgentMail send` after bot-action + mail step.
+
+**Cause**
+- Request body omitted `inbox_id` and `AGENTMAIL_INBOX_ID` is unset on the server.
+
+**Fix**
+- Pass `inbox_id` in the JSON body (demo: `streetkode@agentmail.to`) and/or set `AGENTMAIL_INBOX_ID` in `.env`.
+- For Bearer sends, still need `AGENTMAIL_API_KEY`.
+
+### 7) Invalid payment parameters (e.g. `feeToken`, network, or amount format)
+
+**Symptom**
+- Payment failures that mention token/fee/address/chain inconsistencies.
+
+**Common causes**
+- Using the wrong chain network (testnet vs mainnet).
+- Passing amount in base units when the `x402` chain method expects a decimal-string amount (see server implementation).
+- Misconfigured recipients/fee tokens for a specific provider method.
+
+**Fix**
+- Keep `testnet` as the default for “first get it working” debugging.
+- Match the backend chain method config:
+  - `tempoModerato` chain for testnet-like flows
+  - `tempo` chain for mainnet-like flows
+- Use decimal-string amounts (server uses `toFixed(2)` in key payment handlers).
+
+### 8) `/dance-extras/foo` loaded the hub instead of ExtraDanceApp
+
+**Symptom**
+- Visiting `/dance-extras/live` showed the main hub “Extra Use Case” panel.
+
+**Cause**
+- Router in `main.tsx` only matched pathname `=== '/dance-extras'`.
+
+**Fix**
+- Match `pathname === '/dance-extras' || pathname.startsWith('/dance-extras/')` so subpaths render `ExtraDanceApp`.
+
+### 9) NHS transaction history: only “Audit” rows, no `/tx/0x…` link
+
+**Symptom**
+- `/nhs/transactions` shows **Audit** rows for paid GP access; **Explorer** has no per-row tx link; **`receiptRef`** missing from API JSON.
+
+**Cause**
+- Server code assumed **`chargeResponse.receipt.reference`** after the gateway charge. That property does not exist — the receipt is only produced when **`withReceipt()`** runs on a `Response`, or when read from **`Payment-Receipt`** / credential **`payload.hash`**.
+
+**Fix**
+- Use **`resolvePaymentReceiptRef`** (see Success §9 and **`server/nhs/payment.js`**). Persist **`receipt_ref`** on **`gp_access_requests`** and return **`receiptRef`** in JSON. Ensure **`NHS_ENABLE_PAYMENT_GATE`** is not `false` if you expect on-chain receipts.
+
+### 10) TIP-20 mint: “gas limit too high”, `Unauthorized`, or `Invalid transaction envelope type: "0x76"`
+
+**Symptom**
+- Mint fails after **`Actions.token.createSync`**, or the wallet shows **`Invalid transaction envelope type: "0x76"`** when granting issuer.
+
+**Cause**
+- **`mint`** requires **`ISSUER_ROLE`**. Factory **`admin` ≠ issuer** unless roles were granted.
+- **`grantRolesSync`** batches via **`sendTransaction`** and can emit **type `0x76`** envelopes that **viem + injected wallets** do not accept (only `0x0`, `0x1`, `0x2`, `0x4`).
+
+**Fix**
+- Grant issuer with **`writeContractSync`** on **`grantRole`** (single call), then **`Actions.token.mintSync`**. See Success §10 and **`src/tempoTip20Launch.ts`**.
+
+---
+
+## Best practices (repeatable habits)
+
+### Documentation
+
+1. Treat `HEALTHTECH_USE_CASES.md` as the contract source of truth.
+2. Keep `README.md` as the “product layer” summary:
+   - superapp definition,
+   - stack,
+   - route table,
+   - quick start.
+3. When asked to explain “superapp capabilities”, always map:
+   - hub vs dedicated route vs backend endpoints vs integrations.
+
+### Payment flow correctness
+
+1. For x402 endpoints:
+   - on upstream `402`, return the challenge response so `x402` can solve.
+2. For solved payment forwarding:
+   - forward the correct auth headers from the incoming request.
+3. Keep a consistent “two-stage” mental model:
+   - paid endpoint interaction (x402 solve),
+   - polling or follow-up calls (often SIWX or bearer-token style depending on provider).
+
+### Engineering hygiene
+
+1. Never commit `.env` (it is gitignored).
+2. Prefer `AGENTMAIL_INBOX_ID` + `AGENTMAIL_API_KEY` configuration over fragile passthrough scope behavior when possible.
+3. Use `npm run dev:full` for the fastest end-to-end loop:
+   - Vite on `5173`,
+   - Express API on port `8787`.
+
+### Fast debugging checklist
+
+1. Confirm network selection (`testnet` vs `mainnet`) matches the endpoint expectation.
+2. Confirm amount format (decimal-string, not base units) and fee/path configuration.
+3. For integration errors:
+   - if `402`: preserve challenge response,
+   - if `401/403`: check the correct post-payment auth phase (SIWX vs bearer token vs API key).
+4. If AgentMail inbox errors appear:
+   - check `AGENTMAIL_INBOX_ID`,
+   - prefer the API-key send strategy if `AGENTMAIL_API_KEY` is set.
+
+---
+
+## “Where to look” map
+
+1. Superapp overview + route table: `README.md`
+2. Use-case API mappings and flow steps: `HEALTHTECH_USE_CASES.md`
+3. Implementation patterns and provider edge cases:
+   - `server/index.js` (integration handlers, `402` passthrough, AgentMail send/inbox create)
+4. Dev proxy: `vite.config.ts` (proxy `/api` -> `http://localhost:8787`)
+5. Dance-extras live x402: `POST /api/dance-extras/live/:flowKey/:network`, verify with `GET /api/dance-extras/live`
+6. Demo AgentMail inbox constant: `src/agentmailDemo.ts`
+7. NHS payment gate + receipt reference: `server/nhs/payment.js`, `server/nhs/router.js`, `src/nhsApi.ts`; SQLite schema in `server/nhs/db.js` (`gp_access_requests.receipt_ref`)
+8. TIP-20 launch + mint (issuer role, avoid `grantRolesSync` in browser): `src/tempoTip20Launch.ts`, `src/NhsTip20App.tsx`
+
+
+
+## <<< END FILE: CLAWHUB.md
+
+
+## >>> BEGIN FILE: HEALTHTECH_USE_CASES.md
+
+# HealthTech Use Cases (Arc + x402)
+
+This document is the **behavioral contract** for payment-gated flows in this repo: **Clinical Arc** NHS APIs (`/api/nhs/*`), integrations (AgentMail, HTTP pay notes, etc.), and **legacy** event/dance scaffolds (`/dance-extras`, battle/coaching) that demonstrate the same **HealthTech Protocol** patterns on Arc Testnet + x402.
+
+## Interaction modes (humans & agents)
+
+**HealthTech Protocol** stays **one** contract: payments and API access are governed by **Arc Testnet settlement** + **x402**. Colloquial pairings (human↔human, human↔agent, agent↔human, agent↔agent) describe **who authorizes** and **who benefits**, not four different protocol specs.
+
+- **Human ↔ human** — Wallet-funded commerce between people/orgs (battles, passes, royalties). Primary flows in §1–§10 below.
+- **Human → agent (orchestrated)** — A human approves spend; an agent or script **calls the same `POST /api/...` routes** (e.g. from MCP, CI, or an assistant). The signing wallet is usually still the user’s unless you implement delegation or server-side treasury.
+- **Agent → human** — Backend or paid job **delivers** to a person (email, SMS, pass state). Example: tournament ops bot + AgentMail after a `charge`.
+- **Agent → agent** — **Machine-to-machine**: server keys, HMAC, or **x402** between services; overlaps with “machine payments” in x402. This repo often uses **wallet x402 to this backend**, then **Bearer/API-key** upstream (e.g. AgentMail) to avoid inbox scope issues.
+
+When testing, default to **Arc testnet** and treat **402** responses as “payment required”—whether the client is a browser or an automated caller that can complete the challenge per your security model.
+
+## Scope
+
+- **Third-party gateways:** Integrations (Suno, AgentMail, KicksDB, weather, …) use configurable base URLs in `.env.example`; upstream hosts may return `402` for wallet-paid calls.
+- Network: `testnet` and `mainnet` (UI labels; Arc chain id **5042002** for nanopayments)
+- Payment rail: x402 style `charge` and `session` patterns
+- Locus bridge: Laso Finance endpoints can be used for card issuance and status polling
+- Status: Battle flow has a dedicated frontend; other use cases are implemented as backend scaffolds and/or demo interactions
+
+## Environment and Networks
+
+- Arc testnet
+  - Chain ID: `42431`
+  - Default currency: `pathUSD`
+- mainnet
+  - Chain ID: `4217`
+  - Default currency: `USDC`
+
+Network can be selected in the dedicated Battle frontend. Backend also accepts per-request `network` for battle endpoints.
+
+---
+
+## 1) Battle Entry + Auto Payout
+
+Intent type: `charge`
+
+### User flow steps
+
+1. Organizer sets battle fee and opens registration.
+2. Dancer creates entry intent and receives payment request.
+3. Payment is finalized (simulated in scaffold).
+4. Organizer finalizes results and executes payout.
+
+### API mapping
+
+- `POST /api/battle/entry`
+  - Create intent or verify existing intent
+  - Optional body fields: `network`, `intentId`, `simulatePayment`
+- `POST /api/battle/result`
+- `POST /api/payout/execute`
+  - Optional body field: `network`
+- `GET /api/payout/:battleId`
+
+### Frontend status
+
+- Fully wired dedicated frontend in `src/App.tsx`.
+
+---
+
+## 2) Judge Score Submission as Paid Write API
+
+Intent type: `charge`
+
+### User flow steps
+
+1. Judge opens scoring console for active round.
+2. Judge submits score write.
+3. API stores record and returns receipt.
+4. Score becomes part of auditable event history.
+
+### API mapping
+
+- `POST /api/judges/score`
+
+---
+
+## 3) Real-Time Cypher Micropot Sponsorship
+
+Intent type: `session` style behavior
+
+### User flow steps
+
+1. Cypher pot opens for active dancer.
+2. Fan/support call contributes micro amount.
+3. Pot total updates in real time.
+4. Pot snapshot can be used for end-of-cypher payout logic.
+
+### API mapping
+
+- `POST /api/cypher/micropot/contribute`
+
+---
+
+## 4) Coaching Minutes Marketplace
+
+Intent type: `session`
+
+### User flow steps
+
+1. Student starts coaching session with selected rate.
+2. Usage ticks over time.
+3. Session ends, total is computed, receipt returned.
+4. Receipt can be fetched for display/audit.
+
+### API mapping
+
+- `POST /api/coaching/start`
+- `POST /api/coaching/ping-usage`
+- `POST /api/coaching/end`
+- `GET /api/coaching/:id/receipt`
+
+---
+
+## 5) Beat API Licensing
+
+Intent type: `charge`
+
+### User flow steps
+
+1. Consumer requests license intent for selected beat.
+2. Payment request is created.
+3. Access is granted against license id.
+4. Stream/download URL is issued with receipt.
+
+### API mapping
+
+- `POST /api/beats/:id/license-intent`
+- `POST /api/beats/:id/grant-access`
+- `POST /api/music/suno/generate` (Suno integration for AI beat generation)
+
+### Suno relevance
+
+- Suno is relevant to Beat API Licensing because creators can generate new beat drafts, then route into paid licensing flows.
+- It supports rapid prototyping for event promos, battle intros, and creator packs tied to monetized beat distribution.
+- Reference gateway host (Suno): [suno.mpp.paywithlocus.com](https://suno.mpp.paywithlocus.com)
+
+---
+
+## Parallel (web search / extract / task)
+
+Dedicated UI: **`/parallel`**. Uses **mainnet** + **`x402 client`** for paid `POST`s; task status polling uses **`GET /api/parallel/task/:runId`** (proxied to upstream; typically no per-poll charge).
+
+### API mapping
+
+- `POST /api/parallel/search` → upstream `POST /api/search`
+- `POST /api/parallel/extract` → `POST /api/extract`
+- `POST /api/parallel/task` → `POST /api/task`
+- `GET /api/parallel/task/:runId` → `GET /api/task/:runId`
+
+Reference host: [parallelmpp.dev](https://parallelmpp.dev) · env: **`PARALLEL_BASE_URL`**
+
+---
+
+## OpenAI (chat via x402 gateway)
+
+Dedicated UI: **`/openai`**. Proxies **`POST /v1/chat/completions`** to **`OPENAI_X402_GATEWAY_URL`** (default `https://openai.mpp.tempo.xyz`) with **mainnet** + **`x402 client`**. Optional **`OPENAI_API_KEY`** adds `Authorization: Bearer` on the server.
+
+The hub **AI explainer** still uses **`POST /api/ai/explain-flow`** and direct **`api.openai.com`** when **`OPENAI_API_KEY`** is set.
+
+### API mapping
+
+- `POST /api/openai/chat/completions` → `POST /v1/chat/completions`
+- `POST /api/openai/images/generations` → `POST /v1/images/generations`
+- `POST /api/openai/audio/speech` → `POST /v1/audio/speech` (audio returned as base64 JSON)
+- `POST /api/openai/audio/transcriptions` → `POST /v1/audio/transcriptions` (multipart `file` + `model`)
+- `POST /api/ai/explain-flow` (hub) → OpenAI direct (key required)
+
+Configure **`OPENAI_X402_GATEWAY_URL`** for the OpenAI-compatible gateway you use.
+
+---
+
+## Virtual Debit Card Creation (Laso Finance)
+
+Intent type: `charge`
+
+### User flow steps
+
+1. Operator submits funded card request with wallet and amount.
+2. Backend routes issuance through Locus/Laso x402 endpoint.
+3. API returns card creation response or payment challenge details.
+4. Operator polls card status endpoint until card is ready.
+
+### API mapping
+
+- `POST /api/card/create` (Laso-backed create with mock fallback)
+- `GET /api/card/:id` (Laso-backed status polling with mock fallback)
+
+### Laso relevance
+
+- Laso Finance bridges USDC agent balances into prepaid card rails for real-world merchant spend.
+- This is a practical payment bridge for HealthTech operations and payout-linked spending flows.
+- Integration references: [Locus docs](https://docs.paywithlocus.com/), [Locus llms-full](https://docs.paywithlocus.com/llms-full.txt)
+
+---
+
+## 6) Event Footage Clip Rights + Revenue Router
+
+Intent type: `charge`
+
+### User flow steps
+
+1. Buyer selects clip package.
+2. Split recipe is prepared (dancer/filmer/organizer).
+3. Sale is recorded and mock settlement receipt issued.
+4. Sale record is available for reporting and payouts.
+
+### API mapping
+
+- `POST /api/clips/sale`
+
+---
+
+## 7) Krump Reputation Passport
+
+Intent type: `charge`
+
+### User flow steps
+
+1. Issuer selects dancer and badge/claim type.
+2. Attestation write is submitted.
+3. Receipt confirms write.
+4. Profile trust signal can be surfaced in product.
+
+### API mapping
+
+- `POST /api/reputation/attest`
+
+---
+
+## 8) Studio AI Tooling Usage Billing
+
+Intent type: `charge` or metered `session` style
+
+### User flow steps
+
+1. Studio uses an AI tool endpoint.
+2. Usage event is submitted with units and mode.
+3. Receipt confirms billing event.
+4. Usage can be aggregated for billing/reporting.
+
+### API mapping
+
+- `POST /api/studio/ai-usage`
+
+---
+
+## 9) Tournament Ops Bot Actions
+
+Intent type: `charge`
+
+### User flow steps
+
+1. Organizer selects operation action (alerts, bracket updates, etc.).
+2. Bot action is submitted.
+3. Receipt confirms action write.
+4. Ops alert email is sent through AgentMail.
+5. Action appears in operations timeline.
+
+### API mapping
+
+- `POST /api/bot/action`
+- `POST /api/ops/agentmail/send`
+- `POST /api/ops/stablephone/call` (StablePhone AI ops calls)
+- `GET /api/ops/stablephone/call/:id` (StablePhone call status/transcript polling, SIWX)
+- `POST /api/social/stablesocial/instagram-profile` (StableSocial scrape trigger)
+- `GET /api/social/stablesocial/jobs?token=...` (StableSocial job polling, SIWX)
+- `POST /api/travel/stable/flights-search` (StableTravel integration for event travel logistics)
+- `POST /api/travel/aviationstack/flights` (Aviationstack integration for live flight tracking)
+- `POST /api/travel/googlemaps/geocode` (Google Maps geocoding for venue routing and logistics)
+- `POST /api/travel/openweather/current` (OpenWeather conditions for event-day operations)
+
+### AgentMail relevance
+
+- AgentMail is relevant to tournament operations for automated human notifications
+  (call-time alerts, bracket delay warnings, judge room updates).
+- It naturally complements the paid bot action write path by fan-outing operational
+  messages to staff inboxes.
+- Integration reference: [AgentMail docs](https://docs.agentmail.to/llms-full.txt)
+
+### StablePhone relevance
+
+- StablePhone is relevant for tournament operations because AI voice calls can handle urgent call-time reminders and live coordination tasks.
+- It complements bot actions by adding direct phone outreach with transcript/status polling for auditability.
+- Paid call initiation is x402/x402 and status polling is SIWX-authenticated wallet access.
+- Integration reference: [StablePhone](https://stablephone.dev)
+
+### StableSocial relevance
+
+- StableSocial is relevant for ops and growth because teams can collect social profile intelligence for dancers, events, and fan campaigns.
+- It complements tournament operations by enabling lightweight social monitoring workflows with token-based polling.
+- Trigger calls are paid (x402/x402) and `/api/jobs` polling requires SIWX from the same wallet that paid.
+- Integration reference: [StableSocial](https://stablesocial.dev)
+
+### StableTravel relevance
+
+- StableTravel is relevant for tournament operations where organizers coordinate travel for dancers, judges, and crew.
+- It fits as a paid machine-to-machine API call pattern aligned with x402-style rails.
+- Integration reference: [StableTravel API](https://stabletravel.dev/llms.txt)
+
+### Aviationstack relevance
+
+- Aviationstack is relevant for tournament operations because ops teams need live flight status and schedule intelligence.
+- It complements StableTravel search by enriching logistics with status tracking for arrivals, delays, and gate windows.
+- Integration reference: [Aviationstack API docs](https://docs.apilayer.com/aviationstack/docs/api-documentation?utm_source=AviationstackHomePage&utm_medium=Referral)
+
+### Google Maps relevance
+
+- Google Maps is relevant for tournament operations because crews need accurate venue coordinates, route planning, and dispatch precision.
+- It complements flight and hotel flows by turning raw addresses into reliable geospatial data for logistics tooling.
+- Integration reference: [Google Maps Platform](https://developers.google.com/maps)
+- Reference gateway host (maps): [googlemaps.mpp.tempo.xyz](https://googlemaps.mpp.tempo.xyz)
+
+### OpenWeather relevance
+
+- OpenWeather is relevant to tournament operations because weather conditions impact travel windows, call times, and safety.
+- It complements travel routing by adding real-time environmental context for venue and transport decisions.
+- Dedicated wallet-paid UI: **`/weather`** → `POST /api/travel/openweather/current` → x402 **`POST /openweather/current-weather`** JSON body `{ lat, lon, units? }` (not legacy GET `/data/2.5/weather`).
+- Integration reference: [OpenWeather](https://openweathermap.org)
+- Reference gateway host (OpenWeather): [weather.mpp.paywithlocus.com](https://weather.mpp.paywithlocus.com)
+
+---
+
+## 10) Fan Membership Battle Pass
+
+Intent type: `charge`
+
+### User flow steps
+
+1. Fan selects membership tier.
+2. Purchase request is submitted.
+3. Pass record + receipt are returned.
+4. Perks can be enabled using pass status.
+
+### API mapping
+
+- `POST /api/fan-pass/purchase`
+- `POST /api/market/kicksdb/search` (KicksDB integration for sneaker market intelligence)
+
+### KicksDB relevance
+
+- KicksDB is relevant to fan membership because battle passes can include sneaker/merch perks driven by real market signals.
+- It helps ops and growth teams price drops, target inventory, and tailor tier benefits using product and pricing data.
+- Integration reference: [KicksDB docs](https://docs.kicks.dev/llms-full.txt)
+- Reference gateway host (KicksDB): [kicksdb.mpp.tempo.xyz](https://kicksdb.mpp.tempo.xyz)
+
+---
+
+## AI Explainer
+
+Purpose: product-facing explanation generation for any flow.
+
+- `POST /api/ai/explain-flow`
+  - Uses `OPENAI_API_KEY` on server side only
+  - Payload: `flowTitle`, `flowSubtitle`, `steps[]`
+
+---
+
+## Testing Runbook
+
+## Prerequisites
+
+- Install dependencies:
+  - `npm install`
+- Start app and API:
+  - `npm run dev:full`
+
+## Battle dedicated frontend
+
+Open `http://localhost:5173` and run:
+
+1. Select network (`testnet` or `mainnet`).
+2. Click `1. Create Entry Intent`.
+3. Click `2. Simulate Payment`.
+4. Click `3. Finalize Results`.
+5. Click `4. Execute Payout`.
+6. Optional: `Fetch Payout`.
+
+Observe telemetry:
+
+- status
+- selected network and API chain id
+- intent id
+- payout count
+- latest action log
+
+## Endpoint smoke tests (example)
+
+Use `curl` for any endpoint with JSON body and verify:
+
+- HTTP status is 2xx
+- response is JSON
+- receipt/payload fields are present
+
+---
+
+## Neighbourhood health plan (OpenEHR + Arc USDC + artificial HES + SNOMED CT)
+
+**Intent:** **openEHR** (EHRbase) for structured clinical access (AQL via BFF), **synthetic artificial HES** for LSOA-style aggregates (SQLite), **SNOMED CT** reference concepts (browser links + optional hooks in API responses), **Arc Testnet** + **USDC** **x402** nanopayments, optional **Featherless** narrative. **Not** a validated clinical model — artificial HES does not preserve field relationships. SNOMED tooling org: [IHTSDO on GitHub](https://github.com/IHTSDO); browse codes in the [SNOMED International Browser](https://browser.ihtsdotools.org/).
+
+### API mapping
+
+- `GET /api/neighbourhood/insights/context` — Unpaid: integration narrative (OpenEHR, payments, sample data, SNOMED references with browser URLs).
+- `GET /api/neighbourhood/insights/health` — SQLite row counts + EHRbase reachability probe (unpaid).
+- `POST /api/neighbourhood/insights/lsoa` — Paid (when `NHS_ENABLE_PAYMENT_GATE=true`): AE aggregates by LSOA (or top LSOAs); includes `snomedCt.references` for demos.
+- `POST /api/neighbourhood/insights/summary` — Paid: LLM summary via **Featherless** (`FEATHERLESS_API_KEY` on server); prompt includes SNOMED + openEHR framing.
+- `POST /api/openehr/query/aql` — Paid: body `{ q: "AQL..." }` proxied to **EHRbase** (`EHRBASE_*` env).
+- `GET /api/openehr/health` — EHRbase probe (unpaid).
+- `POST /api/circle-modular` — JSON-RPC proxy to Circle Modular SDK (for `VITE_CIRCLE_CLIENT_KEY` flows).
+- `GET /api/snomed/health` — Optional [Snowstorm](https://github.com/IHTSDO/snowstorm) probe (`SNOWSTORM_URL`, default `http://localhost:8081` if using bundled compose).
+- `GET /api/snomed/lookup/:conceptId` — FHIR `CodeSystem/$lookup` via Snowstorm (requires SNOMED loaded server-side).
+
+### Data ingest
+
+- `npm run ingest:hes` with `HES_SAMPLE_DIR` pointing at the artificial **AE** CSV folder.
+
+### Hackathon volume
+
+- With payment gate off: `npm run burst:hackathon` hits the LSOA endpoint repeatedly for load smoke tests. For **on-chain** evidence, use the live wallet + Gateway flows in the UI.
+
+## Notes and Next Iterations
+
+- Current implementation is scaffold-first and uses in-memory storage.
+- Receipts are mock receipts for local flow testing.
+- Recommended next step:
+  - persist records in a DB,
+  - add auth/roles,
+  - add webhook signature and retry handling for asynchronous settlement paths.
+
+
+## <<< END FILE: HEALTHTECH_USE_CASES.md
+
+
+## >>> BEGIN FILE: HEALTH_TECH_PROTOCOL_AZ.md
+
+# HealthTech Protocol — A to Z
+
+**Use this document** to build a landing page (e.g. in Lovable), social copy, or investor one-pagers. It explains the protocol end-to-end and points to the open-source reference app on GitHub.
+
+| | |
+|---|---|
+| **Protocol** | HealthTech Protocol — pattern stack for **neighbourhood health** and care-ops money flows on **Tempo** + **x402/x402** |
+| **Reference app** | **Clinical Arc** — [`github.com/arunnadarasa/clinicaltempo`](https://github.com/arunnadarasa/clinicaltempo) |
+| **Settlement** | [Tempo](https://tempo.xyz) (L1 tuned for payments) |
+| **HTTP payments** | [x402 protocol](https://developers.circle.com/gateway/nanopayments/concepts/x402) (Circle Gateway on Arc) |
+
+---
+
+## Elevator pitch
+
+**HealthTech Protocol** is an open **pattern stack** for **health and care delivery**: wallet-verified requests, payment-gated service writes, care coordination, monitoring, and agent-friendly APIs—plus **legacy** demo flows (battle entry, coaching, beats, dance-extras) that prove the same **charge / session / 402** patterns. Paid third-party APIs (email, travel, music, intel) plug in the same way.
+
+Money and API access are **settled on Tempo** and **authorized through x402 and HTTP 402 (x402)** so flows stay **verifiable**, **composable**, and **agent-ready**: humans, scripts, and services can participate under explicit trust boundaries.
+
+**Clinical Arc** is the **reference implementation**: one hub, dedicated demos, and a production-style Node/Express API you can fork.
+
+---
+
+## A — Architecture (four layers)
+
+1. **Experience** — Clinical Arc NHS apps (`/nhs/*`) and legacy full-screen demos (battle, coaching, beats, dance-extras, kicks, travel, …).  
+2. **API** — Express routes that encode intents, receipts, and integration behavior.  
+3. **Payments** — `x402 client` on client and server; Tempo chain actions via `viem`.  
+4. **Integrations** — Paid third parties (AgentMail, Suno, OpenWeather, KicksDB, …) via x402 catalog hosts or env-configured proxies.
+
+---
+
+## B — Blockchain: why Tempo?
+
+Tempo is used as the **settlement layer**: fast finality, stable-asset patterns, and tooling that fits **machine-readable payments** (x402) alongside human wallet UX. The protocol is **not** “one smart contract”—it’s **how you wire** industry flows to Tempo’s settlement and receipts.
+
+---
+
+## C — Charges & sessions
+
+Two recurring **payment intents** in the stack:
+
+- **`charge`** — One-shot payment (entry, license, attestation, pass).  
+- **`session`** — Metered or repeated ticks (coaching minutes, micropot-style accumulation).
+
+Both map to x402 semantics and show up across hub copy and `HEALTHTECH_USE_CASES.md`.
+
+---
+
+## D — Clinical Arc (reference implementation)
+
+**Clinical Arc** encodes HealthTech Protocol in a real codebase:
+
+- **Frontend:** React, TypeScript, Vite.  
+- **Backend:** Express 5, payment verification, `402` passthrough, proxies.  
+- **Repo:** [`github.com/arunnadarasa/clinicaltempo`](https://github.com/arunnadarasa/clinicaltempo) — clone, configure `.env`, run `npm run dev:full`.
+
+---
+
+## E — Ecosystem (third-party gateways)
+
+Third-party HTTP APIs often use **x402** challenges; Clinical Arc wires vendors through **`server/index.js`** and documents env vars in **`.env.example`**.
+
+---
+
+## F — Forks & extensibility
+
+The protocol is **meant to be forked**: add a route, add a `src/*App.tsx`, mirror the same **pay → receipt → side effect** pattern. Behavioral contracts live in **`HEALTHTECH_USE_CASES.md`**.
+
+---
+
+## G — Glossary (money on the internet)
+
+- **x402 / 402** — HTTP *Payment Required*; challenge that `x402 client` can solve so a client pays and retries.  
+- **Receipt** — Proof linked to a payment or intent (audit trail for judges, ops, fans).  
+- **TIP-20** — Token patterns on Tempo (e.g. factory demos in-repo).
+
+---
+
+## H — Humans & agents (one protocol)
+
+HealthTech Protocol is **one** stack. “Human→human,” “human→agent,” “agent→human,” and “agent→agent” are **shorthand** for who **authorizes spend** and who **benefits**—not four separate specs.
+
+| Shorthand | Meaning |
+|-----------|--------|
+| Human ↔ human | Wallet commerce (fees, passes, splits). |
+| Human → agent | User approves; orchestrator calls the same HTTP APIs. |
+| Agent → human | Automation delivers email, alerts, passes to people. |
+| Agent ↔ agent | Service-to-service: machine payments, API keys after x402, webhooks. |
+
+---
+
+## I — Integrations (examples)
+
+Illustrative rails demonstrated or scaffolded: **AgentMail**, **StablePhone**, **StableSocial**, **StableTravel**, **Laso** cards, **Suno**, **Parallel**, **OpenWeather**, **OpenAI x402**, **KicksDB**, **Google Maps**, **Aviationstack**, **Alchemy**, **Fal**, **Replicate**, **TIP-20** factory—not all required; enable via env.
+
+---
+
+## J — Justice & judging (paid writes)
+
+Judge score submission is modeled as a **paid write API**: accountability and receipts for who scored whom, when—aligned with battle and event timelines.
+
+---
+
+## K — Keys & configuration
+
+Operators use **`.env`**: `X402_SELLER_ADDRESS`, optional vendor keys, AgentMail (`AGENTMAIL_API_KEY`, `AGENTMAIL_INBOX_ID`), OpenAI, KicksDB, etc. **Never commit secrets**; copy from **`.env.example`**.
+
+---
+
+## L — Live vs simulate
+
+Many flows support **simulate** (mock API, no chain spend) and **live** (Tempo x402 with wallet). Example: **`/dance-extras`** → `POST /api/dance-extras/live/:flowKey/:network` after an x402 charge.
+
+---
+
+## M — x402 (Machine Payments Protocol)
+
+x402 standardizes **how** machines and wallets pay for HTTP resources: challenges, retries, receipts. Clinical Arc uses **`x402 client`** client/server and forwards **402** responses so clients can complete payment.
+
+---
+
+## N — Networks
+
+| Network | Chain ID | Notes |
+|---------|-----------|--------|
+| Arc testnet (Moderato) | `42431` | Default for safe iteration; pathUSD-style fee patterns. |
+| mainnet | `4217` | Real value; test thoroughly on testnet first. |
+
+---
+
+## O — Open source
+
+License: **MIT** (see `LICENSE` in the repo). Use commercially; attribute; contribute back if you can.
+
+---
+
+## P — Product surfaces (routes)
+
+Examples users can open in Clinical Arc:
+
+| Path | Idea |
+|------|------|
+| `/nhs`, `/` | **Clinical Arc** — NHS neighbourhood care hub + workflows |
+| `/battle` | Battle entry + payout (legacy demo) |
+| `/coaching` | Coaching minutes (legacy demo) |
+| `/beats` | Beat licensing (legacy demo) |
+| `/dance-extras` | Seven core **event-style** scaffolds + live x402 |
+| `/kicks`, `/travel`, `/music`, `/email`, … | Vertical demos |
+
+Full table: **`README.md`** in the repo.
+
+---
+
+## Q — Quality & ops
+
+**CLAWHUB.md** in the repo captures **what worked and what failed** (AgentMail inbox scope, stale API processes, 402 loops)—useful for operators and coding agents.
+
+---
+
+## R — Receipts & auditability
+
+Receipts tie **payment** to **business events** (scores, usage ticks, passes, clip sales). That’s the trust layer for organizers, dancers, and partners.
+
+---
+
+## S — Security
+
+- Secrets only in **`.env`**.  
+- **Testnet first** for new flows.  
+- **Mainnet** spends real assets—match recipient config and network selection to your deployment.
+
+---
+
+## T — Tempo (settlement)
+
+Tempo provides the **chain context** for settlement; pair with **explorers** (e.g. testnet/mainnet explorers linked from the app) for transaction hashes.
+
+---
+
+## U — Use cases (ten+)
+
+**NHS:** GP access, care plans, social prescribing, neighbourhood teams, monitoring, alerts (`/api/nhs/*`). **Legacy demos:** battle entry, judge scores, cypher micropot, coaching minutes, beat licensing, clip rights router, reputation attestations, studio AI billing, ops bot + email, fan battle pass—plus integrations above. Details: **`HEALTHTECH_USE_CASES.md`**.
+
+---
+
+## V — Verifiability
+
+The protocol bias is **prove what happened**: payment proof, API receipt, optional on-chain hash exposure—so disputes and automation have a shared source of truth.
+
+---
+
+## W — Wallets
+
+Users pay with **injected wallets** (e.g. MetaMask, Tempo-capable wallets). Server-side keys handle **delegated** or **post-payment** calls where appropriate (e.g. AgentMail after x402 charge).
+
+---
+
+## X — x402 (HTTP Payment Required)
+
+Third-party APIs may return **402** + **WWW-Authenticate**. The backend **preserves** the challenge for `x402 client`; swallowing 402 as a generic error breaks the payment loop.
+
+---
+
+## Y — You (who this is for)
+
+- **Event orgs & platforms** — standardized payment patterns for competitions and community products.  
+- **Builders** — fork Clinical Arc, swap branding, connect your keys.  
+- **Agents & automation** — same HTTP contracts; explicit trust for who signs and who pays.
+
+---
+
+## Z — Zero lock-in (philosophy)
+
+The protocol is **patterns + reference code**, not a single vendor gate. Swap integrations via env; replace UIs; keep Tempo + x402 as the spine—or extract the API contract only.
+
+---
+
+## Suggested Lovable CTA block
+
+**Headline:** *HealthTech Protocol — verifiable payments for neighbourhood health.*
+
+**Sub:** *Built on Tempo & x402. Ship faster with the open Clinical Arc reference app.*
+
+**Primary button:** [View on GitHub](https://github.com/arunnadarasa/clinicaltempo)
+
+**Secondary:** [Try the docs — README](https://github.com/arunnadarasa/clinicaltempo/blob/main/README.md)
+
+---
+
+## Files to read next (in repo)
+
+| File | Purpose |
+|------|---------|
+| `README.md` | Overview, routes, quick start |
+| `HEALTHTECH_USE_CASES.md` | Flow-by-flow API mapping |
+| `CLAWHUB.md` | Operational learnings |
+| `.env.example` | Configuration surface |
+
+---
+
+*This file is maintained for landing-page and handoff use. Protocol naming: **HealthTech Protocol**; implementation / app: **Clinical Arc** · [`github.com/arunnadarasa/clinicaltempo`](https://github.com/arunnadarasa/clinicaltempo).*
+
+
+## <<< END FILE: HEALTH_TECH_PROTOCOL_AZ.md
+
+
+## >>> BEGIN FILE: docs/ARC_X402_NOTES.md
+
+# Arc Testnet + Circle Gateway x402
+
+- **Chain:** Arc Testnet, id **5042002** (`eip155:5042002` in challenges).
+- **Payments:** [Circle Gateway nanopayments](https://developers.circle.com/gateway/nanopayments) with the **x402** HTTP payment protocol.
+- **Faucet:** [Circle Faucet](https://faucet.circle.com) for test USDC and gas — the app’s **Get testnet funds** button links to this flow.
+- **Explorer:** [testnet.arcscan.app](https://testnet.arcscan.app).
+
+NHS and demo routes that require payment use **`createGatewayMiddleware`** on the server and **`wrapFetchWithPayment`** / batch schemes in the browser (`src/arcX402Fetch.ts`, `src/nhsArcPaidFetch.ts`).
+
+Seller address and related settings follow **`X402_SELLER_ADDRESS`** and `.env.example`.
+
+## Gateway balance (batched x402)
+
+Circle’s [Arc nanopayments sample](https://github.com/circlefin/arc-nanopayments) deposits USDC into the **Gateway Wallet** before `gateway.pay` / x402 settlement. Clinical Arc mirrors that: before a paid NHS or dance-extras request, **`ensureGatewayDepositForX402`** (`src/arcGatewayDeposit.ts`) checks [Gateway testnet balances](https://gateway-api-testnet.circle.com) and, if below the minimum, runs **ERC‑20 approve + `deposit`** on `0x0077777d…` (same contracts as `@circle-fin/x402-batching`).
+
+Optional Vite env: **`VITE_GATEWAY_MIN_AVAILABLE_USDC`** (default `0.5`), **`VITE_GATEWAY_TOPUP_USDC`** (default `1`), **`VITE_GATEWAY_SKIP_AUTO_DEPOSIT=true`** to disable the auto top-up (debug only).
+
+Background: [Gateway + x402 for machine-scale micropayments](https://www.circle.com/blog/enabling-machine-to-machine-micropayments-with-gateway-and-usdc); [Circle Wallets + x402 autonomous payments](https://www.circle.com/blog/autonomous-payments-using-circle-wallets-usdc-and-x402) (different facilitator example, same HTTP 402 idea).
+
+
+## <<< END FILE: docs/ARC_X402_NOTES.md
+
+
+## >>> BEGIN FILE: docs/OPENAPI_DISCOVERY.md
+
+# OpenAPI discovery (`/openapi.json`)
+
+Clinical Arc exposes **OpenAPI 3.1** at **`GET /openapi.json`** for tooling and agent discovery.
+
+- **Implementation:** `server/openapi.mjs` (builds the document) + `GET /openapi.json` in `server/index.js`
+- **Paid routes:** Documented with **`x-payment-info`**, **`402`** responses, and JSON **`requestBody`** schemas where required
+
+## Local URLs
+
+| Context | OpenAPI URL |
+|--------|----------------|
+| Express only | `http://localhost:8787/openapi.json` |
+| Vite dev (proxied) | `http://localhost:5173/openapi.json` → 8787 |
+
+## Validate
+
+```bash
+# Terminal 1
+npm run server
+
+# Terminal 2 (with server up)
+npm run discovery
+```
+
+The **`discover`** command loads **`GET /openapi.json`** and lists routes + pricing. Keep **`DANCE_EXTRA_LIVE_AMOUNTS`** in sync in `openapi.mjs` — it is the single source imported by `server/index.js`.
+
+
+## <<< END FILE: docs/OPENAPI_DISCOVERY.md
+
+
+## >>> BEGIN FILE: docs/OWS_NHS.md
+
+# Open Wallet Standard (OWS) — NHS hackathon use case
+
+**In-app:** **`/nhs/ows`** — copy-paste install and next steps for the **`ows`** CLI from the official installer.
+
+**Upstream:** [Open Wallet Standard](https://github.com/open-wallet-standard/core) — installer script hosted at **[docs.openwallet.sh/install.sh](https://docs.openwallet.sh/install.sh)**.
+
+## Install (official script)
+
+```bash
+curl -fsSL https://docs.openwallet.sh/install.sh | bash
+```
+
+The script:
+
+- Downloads a prebuilt **`ows`** binary for your OS/arch (Linux/macOS, x86_64/aarch64) when available, or **builds from source** with Rust/cargo.
+- Installs the binary to **`~/.ows/bin/ows`** (override with env **`OWS_INSTALL_DIR`**).
+- Optionally installs **Python** (`open-wallet-standard`) and **Node** (`@open-wallet-standard/core`) bindings when `python3` / `node`+`npm` are present.
+- Best-effort install of the **OWS agent skill** into detected coding-agent config dirs (Cursor, Copilot, Claude Code, etc.).
+
+After install, reload your shell (or `source ~/.zshrc` / `~/.bashrc`) and run:
+
+```bash
+ows --help
+```
+
+## Relationship to Clinical Tempo
+
+- **Browser flows** in this app use **injected wallets** (e.g. MetaMask) + Tempo — standard web3 UX.
+- **OWS** targets **agent / CLI** and **standard wallet interfaces** for automation and interoperability — useful for hackathon demos where agents or scripts manage keys and signing outside the browser.
+
+This page is **education only**; follow upstream docs for production wallet security.
+
+
+## <<< END FILE: docs/OWS_NHS.md
