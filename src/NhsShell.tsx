@@ -3,10 +3,8 @@ import { fetchArcBalances, type ArcBalances } from './arcWalletBalances'
 import {
   clearStoredWallet,
   getStoredNetwork,
-  getStoredRole,
   getStoredWallet,
   setStoredNetwork,
-  setStoredRole,
   setStoredWallet,
   type NhsNetwork,
   type NhsRole,
@@ -33,14 +31,12 @@ type Props = {
   children: (session: { role: NhsRole; wallet: string; network: NhsNetwork }) => ReactNode
 }
 
-function isRole(value: string): value is NhsRole {
-  return value === 'patient' || value === 'gp' || value === 'nhc_provider'
-}
-
 const emptyBalances: ArcBalances = { walletUsdc: '—', gatewayUsdc: null, gatewayError: null }
 
+/** Demo role sent to APIs (`x-user-role`); hackathon UI does not offer patient / NHC switching. */
+const DEMO_ROLE: NhsRole = 'gp'
+
 export default function NhsShell({ title, subtitle, children }: Props) {
-  const [role, setRole] = useState<NhsRole>(getStoredRole())
   const [wallet, setWallet] = useState<string>(getStoredWallet())
   const [network, setNetwork] = useState<NhsNetwork>(getStoredNetwork())
   const [err, setErr] = useState('')
@@ -49,7 +45,7 @@ export default function NhsShell({ title, subtitle, children }: Props) {
   const [balanceLoading, setBalanceLoading] = useState(false)
   const [balanceFetchErr, setBalanceFetchErr] = useState('')
 
-  const session = useMemo(() => ({ role, wallet, network }), [role, wallet, network])
+  const session = useMemo(() => ({ role: DEMO_ROLE, wallet, network }), [wallet, network])
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
 
   const refreshBalances = useCallback(async () => {
@@ -139,19 +135,6 @@ export default function NhsShell({ title, subtitle, children }: Props) {
           </p>
 
           <div className="actions hero-toolbar">
-            <select
-              value={role}
-              onChange={(event) => {
-                const next = event.target.value
-                if (!isRole(next)) return
-                setRole(next)
-                setStoredRole(next)
-              }}
-            >
-              <option value="patient">patient</option>
-              <option value="gp">gp</option>
-              <option value="nhc_provider">nhc_provider</option>
-            </select>
             <select
               value={network}
               onChange={() => {

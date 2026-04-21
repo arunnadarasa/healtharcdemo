@@ -1,19 +1,17 @@
 export type NhsRole = 'patient' | 'gp' | 'nhc_provider'
 export type NhsNetwork = 'testnet' | 'mainnet'
 
-const ROLE_KEY = 'nhs_role'
 const WALLET_KEY = 'nhs_wallet'
 const PATIENT_ID_KEY = 'nhs_patient_id'
 const NETWORK_KEY = 'nhs_network'
 
+/** Hackathon demo: API headers always use GP (clinician) — no patient / NHC switcher in UI. */
 export function getStoredRole(): NhsRole {
-  const raw = localStorage.getItem(ROLE_KEY)
-  return raw === 'gp' || raw === 'nhc_provider' ? raw : 'patient'
+  return 'gp'
 }
 
-export function setStoredRole(role: NhsRole) {
-  localStorage.setItem(ROLE_KEY, role)
-}
+/** Kept for API compatibility; role is fixed to `gp` in this build. */
+export function setStoredRole(_role: NhsRole) {}
 
 export function getStoredWallet(): string {
   return localStorage.getItem(WALLET_KEY) || ''
