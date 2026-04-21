@@ -19,6 +19,7 @@ const PATH_CONTEXT: Record<string, string> = {
   '/': 'Home',
   '/nhs': 'Home',
   '/nhs/neighbourhood-insights': 'Neighbourhood health plan',
+  '/nhs/hes-scale': 'HES at scale',
 }
 
 function whereYouAre(pathname: string): string {
@@ -182,6 +183,9 @@ export default function NhsShell({ title, subtitle, children }: Props) {
             </a>
             <a className={navLinkClass('/nhs/neighbourhood-insights', pathname)} href="/nhs/neighbourhood-insights">
               Neighbourhood health plan
+            </a>
+            <a className={navLinkClass('/nhs/hes-scale', pathname)} href="/nhs/hes-scale">
+              HES at scale
             </a>
           </div>
 

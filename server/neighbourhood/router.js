@@ -1,6 +1,14 @@
 import express from 'express'
 import { withArcGatewayGate } from '../nhs/payment.js'
-import { aggregateAeByLsoa, hesStats } from './hesDb.js'
+import {
+  aggregateAeByLsoa,
+  aggregateCrossDatasetSummary,
+  getAllIngestMeta,
+  hesDbFileStats,
+  hesStats,
+  searchHesFts,
+  searchHesPrefix,
+} from './hesDb.js'
 import { getEhrbaseHealth } from '../openehr/ehrbaseClient.js'
 import { getIntegrationContext, snomedReferencesWithUrls } from './snomedContext.js'
 import { getSnowstormStatus } from '../snomed/snowstormClient.js'
@@ -40,9 +48,13 @@ export function createNeighbourhoodRouter(deps) {
     }
     try {
       const stats = hesStats()
+      const dbFile = hesDbFileStats()
+      const ingestMeta = getAllIngestMeta()
       res.json({
         ok: true,
         sqlite: stats,
+        dbFile,
+        ingestMeta,
         ehrbase,
         note: 'Artificial HES — not for clinical assurance; see README.',
         time: nowIso(),
@@ -139,6 +151,124 @@ export function createNeighbourhoodRouter(deps) {
             receiptRef: paymentCtx.paymentReceiptRef ?? null,
             summary,
             model,
+            disclaimer: 'Not medical advice. Synthetic artificial HES only.',
+          })
+        } catch (e) {
+          return res.status(502).json({
+            error: String(e?.message ?? e),
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+          })
+        }
+      },
+    ),
+  )
+
+  router.post(
+    '/scale/search',
+    ...gate(
+      {
+        enabled: paymentGateEnabled,
+        amount: '0.01',
+      },
+      (req, res, paymentCtx) => {
+        const { q, dataset, limit, offset, mode } = req.body ?? {}
+        const ds = ['ae', 'op', 'apc', 'all'].includes(dataset) ? dataset : 'all'
+        const lim = Math.min(200, Math.max(1, Number(limit) || 20))
+        const off = Math.max(0, Number(offset) || 0)
+        const m = mode === 'prefix' || mode === 'fts' || mode === 'auto' ? mode : 'auto'
+        try {
+          let rows = []
+          let searchMode = 'fts'
+          if (m === 'prefix') {
+            rows = searchHesPrefix(q, ds, lim).rows
+            searchMode = 'prefix'
+          } else if (m === 'fts') {
+            rows = searchHesFts({ q, dataset: ds, limit: lim, offset: off }).rows
+            searchMode = 'fts'
+          } else {
+            const fts = searchHesFts({ q, dataset: ds, limit: lim, offset: off })
+            rows = fts.rows
+            if (rows.length === 0 && typeof q === 'string' && q.trim()) {
+              rows = searchHesPrefix(q, ds, lim).rows
+              searchMode = 'prefix'
+            }
+          }
+          return res.json({
+            ok: true,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            q: typeof q === 'string' ? q : '',
+            dataset: ds,
+            searchMode,
+            rows,
+            disclaimer: 'Synthetic artificial HES — demo search only.',
+          })
+        } catch (e) {
+          return res.status(400).json({
+            error: String(e?.message ?? e),
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+          })
+        }
+      },
+    ),
+  )
+
+  router.post(
+    '/scale/cross-summary',
+    ...gate(
+      {
+        enabled: paymentGateEnabled,
+        amount: '0.01',
+      },
+      async (req, res, paymentCtx) => {
+        const key = process.env.FEATHERLESS_API_KEY?.trim()
+        if (!key) {
+          return res.status(503).json({
+            error: 'FEATHERLESS_API_KEY not set on server.',
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+          })
+        }
+        const { lsoa } = req.body ?? {}
+        const filter = typeof lsoa === 'string' ? lsoa.trim() : ''
+        const bundle = aggregateCrossDatasetSummary(filter || null)
+        const snomedNote = snomedReferencesWithUrls()
+          .map((r) => `${r.conceptId} ${r.term}`)
+          .join('; ')
+        const payload = JSON.stringify(bundle).slice(0, 12000)
+        const prompt = `You are assisting with a DEMO on synthetic NHS artificial HES data (AE + OP + APC aggregates by LSOA, not real patients). Interoperability: openEHR + SNOMED framing. SNOMED examples: ${snomedNote}. Summarize in 5-8 bullet points for long-term population-health and neighbourhood planning impact, scalability of indexed SQLite + FTS search + per-API USDC nanopayments. Data (aggregates only): ${payload}. Say clearly this is synthetic administrative data and not clinical advice.`
+
+        const model = process.env.FEATHERLESS_MODEL?.trim() || 'Qwen/Qwen2.5-7B-Instruct'
+        const upstream = process.env.FEATHERLESS_API_URL?.trim() || 'https://api.featherless.ai/v1/chat/completions'
+
+        try {
+          const fr = await fetch(upstream, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${key}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: 'user', content: prompt }],
+              max_tokens: 700,
+            }),
+          })
+          const text = await fr.text()
+          let json
+          try {
+            json = JSON.parse(text)
+          } catch {
+            json = { raw: text.slice(0, 2000) }
+          }
+          const summary =
+            json?.choices?.[0]?.message?.content ??
+            json?.choices?.[0]?.text ??
+            (typeof json === 'string' ? json : JSON.stringify(json))
+          return res.json({
+            ok: fr.ok,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            summary,
+            model,
+            bundlePreview: payload.slice(0, 2000),
             disclaimer: 'Not medical advice. Synthetic artificial HES only.',
           })
         } catch (e) {

@@ -27,6 +27,9 @@ export default function NhsHubApp() {
               <a className="button-like hub-cta__primary" href="/nhs/neighbourhood-insights">
                 Go to neighbourhood health plan →
               </a>
+              <a className="button-like secondary" href="/nhs/hes-scale" style={{ marginLeft: '0.5rem' }}>
+                HES at scale (full data) →
+              </a>
               <p className="note hub-cta__note">Paid actions need a connected wallet and USDC on Arc testnet.</p>
             </div>
           </article>

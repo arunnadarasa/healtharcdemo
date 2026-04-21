@@ -2,7 +2,7 @@
 
 > **Workspace:** This repo is the **`agentic-hackathon-arc`** package — develop, commit, and run **`npm run dev`** / **`npm run server`** here. Treat **`Clinical Arc`** (sibling folder under Documents) as **read-only reference** unless you intentionally sync changes back.
 
-**Frontend in this build:** only **`/nhs/neighbourhood-insights`** mounts the full **Neighbourhood health plan** app (OpenEHR + artificial HES + SNOMED + x402, transaction log, facilitator choice). **`/`**, **`/nhs`**, and **every other path** (including `/nhs/gp-access`, `/nhs/transactions`, etc.) render the **same hackathon hub** — wallet shell + CTA to the neighbourhood demo. There are **no** separate React pages for GP access, care plans, or a global NHS transactions screen in this tree; those paths exist for bookmark compatibility and match **`NhsShell`** “Home” context only.
+**Frontend in this build:** **`/nhs/neighbourhood-insights`** is the **Neighbourhood health plan** (OpenEHR + HES + SNOMED + x402). **`/nhs/hes-scale`** is **HES at scale** — full artificial **AE / OP / APC** in SQLite, **FTS5** search, **x402**-paid queries, **Featherless** cross-dataset summary on aggregates. **`/`**, **`/nhs`**, and **other paths** (e.g. `/nhs/gp-access`) render the **hackathon hub** unless matched above. There are **no** legacy GP/care-plan UIs mounted in this tree.
 
 **HealthTech Protocol** is the open **pattern stack** for verifiable payments and care-adjacent flows—**settled on [Arc](https://docs.arc.network/arc/references/connect-to-arc)** with **USDC nanopayments** via [Circle Gateway](https://developers.circle.com/gateway/nanopayments) and **x402** ([overview](https://developers.circle.com/gateway/nanopayments/concepts/x402)). The Express server still carries a broad route surface (NHS, neighbourhood, gateways, etc.); **Treat [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md) as the API / behavior contract** where you wire clients or tests.
 
@@ -38,9 +38,10 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 |--------|------|
 | **Hackathon hub (`/` · `/nhs` · other `/nhs/*` except neighbourhood)** | **Wallet + funnel** to the neighbourhood demo (`NhsHubApp` + shared `NhsShell`). |
 | **Neighbourhood health plan (`/nhs/neighbourhood-insights`)** | **Hackathon app:** **openEHR** (EHRbase AQL via BFF), synthetic **artificial HES** LSOA aggregates, **SNOMED CT** ([IHTSDO](https://github.com/IHTSDO)), **Arc** + **USDC** (**x402**), optional **Featherless** narrative, **Circle Modular**, **Thirdweb** facilitator option where configured. |
-| **Backend (`server/`)** | Express: **`/api/nhs/*`**, **`/api/neighbourhood/*`**, **`/api/openehr/*`**, **`/api/snomed/*`**, **`POST /api/circle-modular`**, plus many optional gateway routes — see **`GET /openapi.json`**. |
+| **HES at scale (`/nhs/hes-scale`)** | **Full** artificial HES **AE + OP + APC** (streaming CSV ingest into SQLite), **FTS5** + prefix search (**`/api/neighbourhood/scale/search`**), **Featherless** AE+OP+APC narrative (**`/api/neighbourhood/scale/cross-summary`**), x402 **$0.01** per paid call — scalability story for judges. |
+| **Backend (`server/`)** | Express: **`/api/nhs/*`**, **`/api/neighbourhood/*`** (includes **`/scale/*`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`POST /api/circle-modular`**, plus many optional gateway routes — see **`GET /openapi.json`**. |
 
-**Artificial HES:** run `npm run ingest:hes` (set `HES_SAMPLE_DIR` to your `artificial_hes_ae_*` folder). Data is **synthetic** — see NHS sample README.
+**Artificial HES (full data):** CSVs are published by **[NHS Digital — Artificial data](https://digital.nhs.uk/services/artificial-data)** (synthetic administrative / hospital episode–style datasets for non-production use). Download the release you need, then point ingest env vars at the extracted folders. **`npm run ingest:hes`** uses **`HES_AE_DIR`**, **`HES_OP_DIR`**, **`HES_APC_DIR`** (or legacy **`HES_SAMPLE_DIR`** for AE-only). Optional **`HES_ROW_LIMIT_PER_FILE`**, **`HES_CLEAR_FIRST=1`**, **`HES_INGEST_BATCH`**. Large CSVs use **streaming** (no full-file RAM). If you loaded data before FTS existed, run **`npm run hes:rebuild-fts`**. Follow the **NHS Digital** licence terms for that service; this app treats ingested rows as **demo / non-clinical** only.
 
 **EHRbase (live AQL):** the BFF calls EHRbase at `EHRBASE_BASE_URL` (default `http://localhost:8080/ehrbase`). **Start the stack:** `npm run ehrbase:up` (same as `docker compose -f docker-compose.ehrbase.yml up -d`). Wait until the API responds — first boot can take a few minutes. **Credentials** must match the container: by default `EHRBASE_USER=ehrbase-user` and `EHRBASE_PASSWORD=SuperSecretPassword` (see `docker-compose.ehrbase.yml`). **Run the API** on port 8787 (`npm run server` or `npm run dev:full`) so `/api/neighbourhood/insights/health` can reach EHRbase. If Docker fails to parse `.env`, ensure every line is either `KEY=value` or starts with `#` (no stray text like `HES ingest:` without `#`). **Port 5432** is exposed for Postgres — if another Postgres uses 5432, stop it or change the host port in `docker-compose.ehrbase.yml`.
 
@@ -63,7 +64,8 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 | `npm run dev` | Vite only — **proxies `/api` → `http://localhost:8787`** |
 | `npm run server` | Express API (default **port 8787**) |
 | `npm run dev:full` | Both (recommended for live x402 flows) |
-| `npm run ingest:hes` | Load artificial HES AE CSVs into `data/neighbourhood-hes.db` (set `HES_SAMPLE_DIR`) |
+| `npm run ingest:hes` | Stream-ingest artificial HES **AE / OP / APC** CSVs → `data/neighbourhood-hes.db` (see **`HES_*_DIR`** env vars) |
+| `npm run hes:rebuild-fts` | Rebuild **FTS5** index from base HES tables (after legacy ingest) |
 | `npm run burst:hackathon` | 50× unpaid POST smoke (use with `NHS_ENABLE_PAYMENT_GATE=false`) |
 | `npm run snowstorm:up` | Optional [Snowstorm](https://github.com/IHTSDO/snowstorm) + Elasticsearch (`docker-compose.snowstorm.yml`, Snowstorm on **localhost:8081**) |
 
@@ -89,9 +91,10 @@ For hackathon capture steps, see **[Hackathon criteria alignment](#hackathon-cri
 | Path | Purpose |
 |------|---------|
 | `/nhs/neighbourhood-insights` | **Neighbourhood health plan** — HES aggregates, OpenEHR BFF, SNOMED tools, x402-paid actions, **transaction log** (paginated), facilitator preference. |
-| **`/`** · **`/nhs`** · **any other path** (e.g. `/nhs/gp-access`) | **Same hackathon hub** — connect wallet, faucet, link to neighbourhood demo only (`src/main.tsx` + `src/hubRoutes.ts`). |
+| `/nhs/hes-scale` | **HES at scale** — SQLite row counts + on-disk DB size, **paid** FTS/prefix search, **paid** Featherless AE+OP+APC summary, tx log. |
+| **`/`** · **`/nhs`** · **other paths** (e.g. `/nhs/gp-access`) | **Hackathon hub** — wallet, links to neighbourhood + HES scale (`src/main.tsx` + `src/hubRoutes.ts`). |
 
-**Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`**, **`/api/openehr/*`**, **`/api/snomed/*`**, **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
+**Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`** (incl. **`/scale/search`**, **`/scale/cross-summary`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
 
 ## Quick start
 

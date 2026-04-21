@@ -11,7 +11,9 @@ export function getStoredRole(): NhsRole {
 }
 
 /** Kept for API compatibility; role is fixed to `gp` in this build. */
-export function setStoredRole(_role: NhsRole) {}
+export function setStoredRole(_role: NhsRole) {
+  void _role
+}
 
 export function getStoredWallet(): string {
   return localStorage.getItem(WALLET_KEY) || ''

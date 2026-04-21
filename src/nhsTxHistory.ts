@@ -46,24 +46,44 @@ export function clearNhsTxHistory() {
   localStorage.removeItem(KEY)
 }
 
-/** Paid routes on the neighbourhood insights page (OpenEHR AQL + HES + Featherless). */
-const NEIGHBOURHOOD_INSIGHTS_ENDPOINTS = new Set([
+/** Paid neighbourhood + OpenEHR + HES scale routes (x402 $0.01). */
+const NEIGHBOURHOOD_PAID_ENDPOINTS = new Set([
   '/api/openehr/query/aql',
   '/api/neighbourhood/insights/lsoa',
   '/api/neighbourhood/insights/summary',
+  '/api/neighbourhood/scale/search',
+  '/api/neighbourhood/scale/cross-summary',
+])
+
+/** Insights page only (excludes HES scale explorer paid calls). */
+const NEIGHBOURHOOD_INSIGHTS_ONLY = new Set([
+  '/api/openehr/query/aql',
+  '/api/neighbourhood/insights/lsoa',
+  '/api/neighbourhood/insights/summary',
+])
+
+const HES_SCALE_ENDPOINTS = new Set([
+  '/api/neighbourhood/scale/search',
+  '/api/neighbourhood/scale/cross-summary',
 ])
 
 /** Server gate price for those routes (`server/neighbourhood/router.js`, `server/openehr/bffRouter.js`). */
 export const NEIGHBOURHOOD_X402_PRICE_DISPLAY = '$0.01'
 
 export function paidDisplayForNeighbourhoodEndpoint(endpoint: string): string | undefined {
-  if (NEIGHBOURHOOD_INSIGHTS_ENDPOINTS.has(endpoint)) return NEIGHBOURHOOD_X402_PRICE_DISPLAY
+  if (NEIGHBOURHOOD_PAID_ENDPOINTS.has(endpoint)) return NEIGHBOURHOOD_X402_PRICE_DISPLAY
   return undefined
 }
 
 export function listNhsTxHistoryNeighbourhoodInsights(network: NhsNetwork): NhsTxItem[] {
   return listNhsTxHistory().filter(
-    (row) => row.network === network && NEIGHBOURHOOD_INSIGHTS_ENDPOINTS.has(row.endpoint),
+    (row) => row.network === network && NEIGHBOURHOOD_INSIGHTS_ONLY.has(row.endpoint),
+  )
+}
+
+export function listNhsTxHistoryHesScale(network: NhsNetwork): NhsTxItem[] {
+  return listNhsTxHistory().filter(
+    (row) => row.network === network && HES_SCALE_ENDPOINTS.has(row.endpoint),
   )
 }
 

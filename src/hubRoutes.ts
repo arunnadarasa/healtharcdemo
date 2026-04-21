@@ -14,6 +14,11 @@ export const HUB_ROUTE_GROUPS: HubRouteGroup[] = [
         title: 'Neighbourhood health plan',
         hint: 'OpenEHR AQL + artificial HES + SNOMED + x402',
       },
+      {
+        href: '/nhs/hes-scale',
+        title: 'HES at scale',
+        hint: 'Full AE/OP/APC SQLite + FTS + x402 + Featherless',
+      },
     ],
   },
 ]

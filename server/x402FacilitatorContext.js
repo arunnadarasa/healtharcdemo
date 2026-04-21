@@ -8,7 +8,13 @@ function isPaidNeighbourhoodOrOpenehrPost(req) {
   if (req.method !== 'POST') return false
   const path = req.path || ''
   if (!path.startsWith('/api/neighbourhood') && !path.startsWith('/api/openehr')) return false
-  if (path.startsWith('/api/neighbourhood') && (path.includes('/insights/lsoa') || path.includes('/insights/summary')))
+  if (
+    path.startsWith('/api/neighbourhood') &&
+    (path.includes('/insights/lsoa') ||
+      path.includes('/insights/summary') ||
+      path.includes('/scale/search') ||
+      path.includes('/scale/cross-summary'))
+  )
     return true
   if (path.startsWith('/api/openehr') && path.endsWith('/query/aql')) return true
   return false

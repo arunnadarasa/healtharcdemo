@@ -155,6 +155,18 @@ export function createNeighbourhoodThirdwebPaymentMiddleware() {
         description: 'Featherless neighbourhood summary (demo)',
       })
     }
+    if (req.path === '/scale/search') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'HES FTS / prefix search at scale (demo)',
+      })
+    }
+    if (req.path === '/scale/cross-summary') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'Featherless AE+OP+APC cross-dataset summary (demo)',
+      })
+    }
     return next()
   }
 }
