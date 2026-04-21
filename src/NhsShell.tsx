@@ -218,7 +218,7 @@ export default function NhsShell({ title, subtitle, children }: Props) {
                     title={
                       balances?.gatewayError
                         ? balances.gatewayError
-                        : 'Spendable via Circle Gateway for x402 batch payments (deposit from wallet if needed)'
+                        : 'Circle Gateway only — USDC deposited for batch x402. Thirdweb mode spends Wallet USDC on-chain; this line may not change.'
                     }
                   >
                     {balanceLoading && !balances ? (

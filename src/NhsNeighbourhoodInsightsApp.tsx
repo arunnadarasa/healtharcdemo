@@ -137,6 +137,14 @@ function NeighbourhoodInsightsGrid({
             <option value="thirdweb">Thirdweb (EIP-3009 exact)</option>
           </select>
         </div>
+        <p className="note" style={{ marginTop: '0.75rem' }}>
+          <strong>Top bar balances:</strong> <strong>Wallet USDC</strong> is on-chain Arc USDC (viem <code>balanceOf</code>
+          ). <strong>Gateway USDC</strong> is only USDC credited inside <strong>Circle Gateway</strong> for this app
+          domain — it is <em>not</em> a &quot;Thirdweb balance&quot;; Thirdweb x402 settles from your <strong>wallet</strong>{' '}
+          (EIP-3009), so with <strong>Thirdweb</strong> selected you should watch <strong>Wallet USDC</strong>;{' '}
+          <strong>Gateway</strong> may stay flat unless you also deposit for Circle flows. Balances refresh about every{' '}
+          <strong>45s</strong> or when you click <strong>Refresh</strong>.
+        </p>
       </article>
       <article className="card">
         <h2>Hackathon integration</h2>
