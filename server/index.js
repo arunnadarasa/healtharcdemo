@@ -37,6 +37,7 @@ import {
 } from './thirdwebX402.js'
 import { resolveNhsX402Facilitator } from './x402FacilitatorContext.js'
 import { createSnomedRouter } from './snomed/router.js'
+import { createDmdRouter } from './dmd/router.js'
 
 const app = express()
 /** So `req.protocol` / forwarded headers match the browser origin when Vite proxies (localhost:5173 → 8787). */
@@ -487,6 +488,13 @@ app.use(
 
 /** SNOMED CT via optional [Snowstorm](https://github.com/IHTSDO/snowstorm) — read-only FHIR $lookup */
 app.use('/api/snomed', createSnomedRouter())
+app.use(
+  '/api/dmd',
+  createDmdRouter({
+    gateway: arcGateway,
+    skipInternalGateway: (req) => req.nhsX402Facilitator === 'thirdweb',
+  }),
+)
 
 // Arc Testnet: use Circle’s public faucet for USDC + native gas — see https://docs.arc.network/arc/references/connect-to-arc
 app.post('/api/arc/faucet', async (req, res) => {

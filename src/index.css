@@ -409,6 +409,21 @@ button:disabled {
   color: var(--muted);
 }
 
+.card label {
+  display: block;
+  margin-top: 0.75rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.card label input,
+.card label select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0.35rem;
+}
+
 .intent strong {
   color: #0f2a56;
 }
@@ -454,6 +469,11 @@ pre {
   border-radius: 10px;
   padding: 0.45rem 0.6rem;
   font-size: 0.92rem;
+}
+
+.note code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .callout {
