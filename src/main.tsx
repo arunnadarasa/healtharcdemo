@@ -5,11 +5,15 @@ import './index.css'
 import NhsHubApp from './NhsHubApp.tsx'
 import NhsHesScaleApp from './NhsHesScaleApp.tsx'
 import NhsNeighbourhoodInsightsApp from './NhsNeighbourhoodInsightsApp.tsx'
+import NhsSnomedIntelligenceApp from './NhsSnomedIntelligenceApp.tsx'
+import NhsDmdIntelligenceApp from './NhsDmdIntelligenceApp.tsx'
 
 const path = window.location.pathname
-let page: 'hub' | 'neighbourhood' | 'hesscale' = 'hub'
+let page: 'hub' | 'neighbourhood' | 'hesscale' | 'snomed' | 'dmd' = 'hub'
 if (path === '/nhs/neighbourhood-insights') page = 'neighbourhood'
 else if (path === '/nhs/hes-scale') page = 'hesscale'
+else if (path === '/nhs/snomed-intelligence') page = 'snomed'
+else if (path === '/nhs/dmd-intelligence') page = 'dmd'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,6 +21,10 @@ createRoot(document.getElementById('root')!).render(
       <NhsNeighbourhoodInsightsApp />
     ) : page === 'hesscale' ? (
       <NhsHesScaleApp />
+    ) : page === 'snomed' ? (
+      <NhsSnomedIntelligenceApp />
+    ) : page === 'dmd' ? (
+      <NhsDmdIntelligenceApp />
     ) : (
       <NhsHubApp />
     )}

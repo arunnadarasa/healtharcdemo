@@ -70,7 +70,11 @@ export async function fhirLookupSnomedConcept(conceptId) {
   u.searchParams.set('system', 'http://snomed.info/sct')
   u.searchParams.set('code', String(conceptId))
   const res = await fetch(u.toString(), {
-    headers: { Accept: 'application/fhir+json' },
+    headers: {
+      Accept: 'application/fhir+json',
+      // Snowstorm can reject wildcard language headers (e.g. `*`) on FHIR lookup.
+      'Accept-Language': 'en-GB,en;q=0.9',
+    },
   })
   const text = await res.text()
   let json

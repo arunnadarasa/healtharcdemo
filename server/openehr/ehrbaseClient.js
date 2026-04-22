@@ -14,21 +14,34 @@ function getAuthHeader() {
   return `Basic ${b}`
 }
 
+const EHRBASE_FETCH_TIMEOUT_MS = 4000
+
+function fetchOpts(extra = {}) {
+  const signal =
+    typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(EHRBASE_FETCH_TIMEOUT_MS)
+      : undefined
+  return { ...extra, ...(signal ? { signal } : {}) }
+}
+
 /**
  * @param {string} aql
  */
 export async function postAqlQuery(aql) {
   const base = getBaseUrl().replace(/\/$/, '')
   const url = `${base}/rest/openehr/v1/query/aql`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Authorization: getAuthHeader(),
-    },
-    body: JSON.stringify({ q: aql }),
-  })
+  const res = await fetch(
+    url,
+    fetchOpts({
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: getAuthHeader(),
+      },
+      body: JSON.stringify({ q: aql }),
+    }),
+  )
   const text = await res.text()
   let json
   try {
@@ -44,10 +57,13 @@ export async function getEhrbaseHealth() {
   const paths = [`${base}/rest/status`, `${base}/rest/ehr`, `${base}/actuator/health`]
   for (const url of paths) {
     try {
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: { Accept: 'application/json', Authorization: getAuthHeader() },
-      })
+      const res = await fetch(
+        url,
+        fetchOpts({
+          method: 'GET',
+          headers: { Accept: 'application/json', Authorization: getAuthHeader() },
+        }),
+      )
       if (res.ok || res.status === 401) {
         return { reachable: true, url, status: res.status }
       }
@@ -56,7 +72,7 @@ export async function getEhrbaseHealth() {
     }
   }
   try {
-    const res = await fetch(`${base}/rest/status`, { method: 'GET' })
+    const res = await fetch(`${base}/rest/status`, fetchOpts({ method: 'GET' }))
     return { reachable: res.ok, url: `${base}/rest/status`, status: res.status }
   } catch (e) {
     return { reachable: false, error: String(e?.message ?? e) }

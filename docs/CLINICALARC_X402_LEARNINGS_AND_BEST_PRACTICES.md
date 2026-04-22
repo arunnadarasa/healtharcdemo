@@ -58,6 +58,11 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 
 ## 3. Failures, pitfalls & things that misled us
 
+> [!WARNING]
+> **Known external incident (Arc Testnet + Circle batching):** during the hackathon window, there is an active issue affecting settlement/validation timing when using `@circle-fin/x402-batching` on Arc Testnet. Symptom in this app: first paid request returns `402`, signature step succeeds, retry enters API, then client shows `signal timed out` before route completion. This is currently treated as an upstream network/facilitator incident, not a deterministic app-only bug.
+>
+> **Workaround for demos:** prefer **MetaMask mode + Thirdweb facilitator** for paid flows until the Arc/Circle incident is resolved. Keep Circle mode for wallet creation/funding demos, but avoid relying on Circle batching settlement for judged live runs while the incident is active.
+
 1. **`insufficient_balance` (Gateway)**  
    Not the same as “zero wallet USDC.” Fund the **Gateway** via deposit when using Circle; watch **Gateway USDC** in the shell balance bar.
 
@@ -103,6 +108,7 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 
 - [ ] **Pick one settlement path** per environment: Circle **or** Thirdweb; don’t mix client/server env.  
 - [ ] **Circle:** Ensure **Gateway balance** + understand **wallet USDC ≠ Gateway available** until deposited.  
+- [ ] **If Arc/Circle batching incident is active:** treat Circle settlement timeouts as potentially upstream; switch demo traffic to **Thirdweb** path for reliability.
 - [ ] **Thirdweb:** **`THIRDWEB_SECRET_KEY`**, funded **Arc USDC** wallet for EIP-3009. Neighbourhood UI can switch **Circle vs Thirdweb** (header **`X-X402-Facilitator`**); default still comes from **`VITE_X402_FACILITATOR`** / **`X402_FACILITATOR`**.  
 - [ ] **Thirdweb + `@x402/fetch`:** keep **`normalizePaymentDataForThirdwebSettle`** (`server/thirdwebX402.js`) — Thirdweb’s decoder expects top-level **`scheme` / `network`**; **`@x402` v2** puts them on **`accepted`**.  
 - [ ] **Resource URL:** Vite proxy should forward host/proto (**`X-Forwarded-Host`**, **`X-Forwarded-Proto`**) so **`resourceUrl`** in **`settlePayment`** matches the browser origin (see **`resourceUrlFromReq`** in **`server/thirdwebX402.js`**).  
@@ -160,4 +166,4 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 
 ---
 
-*Last updated: Thirdweb + `@x402` payload-shape fix, transaction-log “Audit” nuance — Clinical Arc, Arc Testnet, x402.*
+*Last updated: Added Arc Testnet + Circle batching incident warning and Thirdweb workaround guidance; includes prior `@x402` payload-shape and tx-log learnings — Clinical Arc, Arc Testnet, x402.*

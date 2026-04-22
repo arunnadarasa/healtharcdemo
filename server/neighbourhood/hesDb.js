@@ -337,28 +337,6 @@ export async function ingestAeFile(filePath, db = getHesDb()) {
   return ingestAeFileStreaming(filePath, db, {})
 }
 
-export function clearAe(db = getHesDb()) {
-  db.prepare(`DELETE FROM hes_fts WHERE dataset = 'ae'`).run()
-  db.exec('DELETE FROM hes_ae')
-}
-
-export function clearOp(db = getHesDb()) {
-  db.prepare(`DELETE FROM hes_fts WHERE dataset = 'op'`).run()
-  db.exec('DELETE FROM hes_op')
-}
-
-export function clearApc(db = getHesDb()) {
-  db.prepare(`DELETE FROM hes_fts WHERE dataset = 'apc'`).run()
-  db.exec('DELETE FROM hes_apc')
-}
-
-export function clearAllHes(db = getHesDb()) {
-  db.exec('DELETE FROM hes_fts')
-  db.exec('DELETE FROM hes_ae')
-  db.exec('DELETE FROM hes_op')
-  db.exec('DELETE FROM hes_apc')
-}
-
 /** Rebuild FTS from base tables (e.g. after legacy ingest that did not populate `hes_fts`). */
 export function rebuildHesFtsFromBaseTables(db = getHesDb()) {
   db.exec('DELETE FROM hes_fts')
@@ -375,6 +353,33 @@ export function rebuildHesFtsFromBaseTables(db = getHesDb()) {
     SELECT lsoa, pseudo_hes_id, 'apc', id FROM hes_apc
   `)
   return hesStats(db)
+}
+
+/**
+ * Clear one HES dataset and rebuild FTS from the remaining base tables.
+ * Do **not** use `DELETE FROM hes_fts WHERE dataset = ?` — `dataset` is FTS5 UNINDEXED and the scan
+ * blocks for a very long time on large indexes.
+ */
+export function clearAe(db = getHesDb()) {
+  db.exec('DELETE FROM hes_ae')
+  rebuildHesFtsFromBaseTables(db)
+}
+
+export function clearOp(db = getHesDb()) {
+  db.exec('DELETE FROM hes_op')
+  rebuildHesFtsFromBaseTables(db)
+}
+
+export function clearApc(db = getHesDb()) {
+  db.exec('DELETE FROM hes_apc')
+  rebuildHesFtsFromBaseTables(db)
+}
+
+export function clearAllHes(db = getHesDb()) {
+  db.exec('DELETE FROM hes_fts')
+  db.exec('DELETE FROM hes_ae')
+  db.exec('DELETE FROM hes_op')
+  db.exec('DELETE FROM hes_apc')
 }
 
 export function setIngestMeta(key, value, db = getHesDb()) {
@@ -477,16 +482,48 @@ export function aggregateCrossDatasetSummary(lsoaFilter, db = getHesDb()) {
   }
 }
 
+/**
+ * Cheap row estimates for `/insights/health` — **never** run `COUNT(*)` on multi-million-row HES tables or
+ * the FTS5 virtual table from the Node main thread: it blocks the whole HTTP server for minutes.
+ *
+ * - Base tables: `sqlite_sequence.seq` (AUTOINCREMENT) or `MAX(rowid)` fallback.
+ * - FTS: `MAX(id)` on `hes_fts_docsize` (one row per doc; ids are monotonic for append-only ingest).
+ */
+const HES_BASE_TABLES = /** @type {const} */ (['hes_ae', 'hes_op', 'hes_apc'])
+
+function autoIncrementRowEstimate(db, tableName) {
+  if (!HES_BASE_TABLES.includes(tableName)) {
+    throw new Error('hesStats: invalid table')
+  }
+  try {
+    const row = db.prepare('SELECT seq AS c FROM sqlite_sequence WHERE name = ?').get(tableName)
+    if (row && Number.isFinite(row.c) && row.c >= 0) return row.c
+  } catch {
+    /* ignore */
+  }
+  try {
+    const row = db.prepare(`SELECT COALESCE(MAX(rowid), 0) AS c FROM ${tableName}`).get()
+    return row?.c ?? 0
+  } catch {
+    return 0
+  }
+}
+
+function ftsDocumentRowEstimate(db) {
+  try {
+    const row = db.prepare('SELECT COALESCE(MAX(id), 0) AS c FROM hes_fts_docsize').get()
+    return row?.c ?? 0
+  } catch {
+    return 0
+  }
+}
+
 export function hesStats(db = getHesDb()) {
-  const ae = db.prepare('SELECT COUNT(*) AS c FROM hes_ae').get()
-  const op = db.prepare('SELECT COUNT(*) AS c FROM hes_op').get()
-  const apc = db.prepare('SELECT COUNT(*) AS c FROM hes_apc').get()
-  const fts = db.prepare('SELECT COUNT(*) AS c FROM hes_fts').get()
   return {
-    aeRows: ae?.c ?? 0,
-    opRows: op?.c ?? 0,
-    apcRows: apc?.c ?? 0,
-    ftsRows: fts?.c ?? 0,
+    aeRows: autoIncrementRowEstimate(db, 'hes_ae'),
+    opRows: autoIncrementRowEstimate(db, 'hes_op'),
+    apcRows: autoIncrementRowEstimate(db, 'hes_apc'),
+    ftsRows: ftsDocumentRowEstimate(db),
   }
 }
 

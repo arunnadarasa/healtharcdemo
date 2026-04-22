@@ -8,6 +8,7 @@ import {
   NEIGHBOURHOOD_X402_PRICE_DISPLAY,
   paidDisplayForNeighbourhoodEndpoint,
   type NhsTxItem,
+  type WalletMode,
 } from './nhsTxHistory'
 import {
   getX402FacilitatorPreference,
@@ -16,6 +17,14 @@ import {
 } from './x402FacilitatorPreference'
 import type { NhsNetwork, NhsRole } from './nhsSession'
 
+type HealthJson = {
+  ok?: boolean
+  sqlite?: { aeRows?: number; opRows?: number; apcRows?: number; ftsRows?: number }
+  dbFile?: { path?: string; bytes?: number }
+  ingestMeta?: Array<{ key: string; value: string }>
+  note?: string
+}
+
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
@@ -23,12 +32,21 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
-type HealthJson = {
-  ok?: boolean
-  sqlite?: { aeRows?: number; opRows?: number; apcRows?: number; ftsRows?: number }
-  dbFile?: { path?: string; bytes?: number }
-  ingestMeta?: Array<{ key: string; value: string }>
-  note?: string
+function formatRowCount(n: number | undefined): string {
+  if (n == null || !Number.isFinite(n)) return '—'
+  return n.toLocaleString('en-GB')
+}
+
+function totalCareRows(s: HealthJson['sqlite']): number {
+  const ae = s?.aeRows ?? 0
+  const op = s?.opRows ?? 0
+  const apc = s?.apcRows ?? 0
+  return ae + op + apc
+}
+
+function formatTxTime(iso: string): string {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
 }
 
 type SearchRow = {
@@ -43,17 +61,26 @@ type SearchRow = {
 type NhsSession = { role: NhsRole; wallet: string; network: NhsNetwork }
 
 const TX_LOG_PAGE_SIZE = 10
+type TxModeFilter = 'all' | WalletMode
 
 function HesScaleGrid({
   session,
   payLabel,
   health,
+  healthLoading,
+  healthError,
+  dbFile,
+  sqliteStats,
   x402Provider,
   onX402ProviderChange,
 }: {
   session: NhsSession
   payLabel: string
   health: string
+  healthLoading: boolean
+  healthError: string | null
+  dbFile: HealthJson['dbFile'] | null
+  sqliteStats: HealthJson['sqlite'] | null
   x402Provider: X402FacilitatorId
   onX402ProviderChange: (v: X402FacilitatorId) => void
 }) {
@@ -65,6 +92,7 @@ function HesScaleGrid({
   const [lsoaFilter, setLsoaFilter] = useState('')
   const [busy, setBusy] = useState(false)
   const [txRows, setTxRows] = useState<NhsTxItem[]>(() => listNhsTxHistoryHesScale(session.network))
+  const [txModeFilter, setTxModeFilter] = useState<TxModeFilter>('all')
   const [txPage, setTxPage] = useState(1)
 
   const refreshTxLog = useCallback(() => {
@@ -76,10 +104,14 @@ function HesScaleGrid({
     refreshTxLog()
   }, [refreshTxLog])
 
-  const txTotalPages = txRows.length === 0 ? 0 : Math.ceil(txRows.length / TX_LOG_PAGE_SIZE)
+  const filteredTxRows = txRows.filter((row) => {
+    if (txModeFilter === 'all') return true
+    return row.walletMode === txModeFilter
+  })
+  const txTotalPages = filteredTxRows.length === 0 ? 0 : Math.ceil(filteredTxRows.length / TX_LOG_PAGE_SIZE)
   const txPageSafe = txTotalPages === 0 ? 1 : Math.min(txPage, txTotalPages)
   const txPageStart = (txPageSafe - 1) * TX_LOG_PAGE_SIZE
-  const txPageRows = txRows.slice(txPageStart, txPageStart + TX_LOG_PAGE_SIZE)
+  const txPageRows = filteredTxRows.slice(txPageStart, txPageStart + TX_LOG_PAGE_SIZE)
 
   const runSearch = async () => {
     if (!session.wallet) {
@@ -93,6 +125,8 @@ function HesScaleGrid({
         ok?: boolean
         rows?: SearchRow[]
         searchMode?: string
+        tableCounts?: HealthJson['sqlite']
+        emptyHint?: string | null
         disclaimer?: string
       }>(
         '/api/neighbourhood/scale/search',
@@ -109,7 +143,13 @@ function HesScaleGrid({
       const rows = res.data?.rows ?? []
       setSearchOut(
         JSON.stringify(
-          { searchMode: res.data?.searchMode, count: rows.length, rows: rows.slice(0, 25) },
+          {
+            searchMode: res.data?.searchMode,
+            count: rows.length,
+            tableCounts: res.data?.tableCounts,
+            emptyHint: res.data?.emptyHint,
+            rows: rows.slice(0, 25),
+          },
           null,
           2,
         ),
@@ -186,13 +226,110 @@ function HesScaleGrid({
           <code>npm run ingest:hes</code> (set <code>HES_AE_DIR</code>, <code>HES_OP_DIR</code>, <code>HES_APC_DIR</code>
           , optional <code>HES_ROW_LIMIT_PER_FILE</code>).
         </p>
-        <pre className="note" style={{ overflow: 'auto', maxHeight: '14rem' }}>
-          {health || '…'}
-        </pre>
+        {healthError ? (
+          <p className="note" role="alert" style={{ color: '#b42318' }}>
+            Could not load stats: {healthError}
+          </p>
+        ) : null}
+        {sqliteStats ? (
+          <>
+            <p style={{ fontSize: '1.15rem', margin: '0.75rem 0 0.5rem', lineHeight: 1.35 }}>
+              <strong>{formatRowCount(totalCareRows(sqliteStats))}</strong> synthetic HES rows in SQLite across{' '}
+              <strong>AE + OP + APC</strong>
+              {sqliteStats.ftsRows != null ? (
+                <>
+                  {' '}
+                  · <strong>{formatRowCount(sqliteStats.ftsRows)}</strong> FTS-indexed documents (LSOA + pseudo id)
+                </>
+              ) : null}
+              .
+            </p>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(10.5rem, 1fr))',
+                gap: '0.6rem',
+                marginBottom: '0.75rem',
+              }}
+            >
+              {(
+                [
+                  ['AE', sqliteStats.aeRows, 'Accident & emergency'],
+                  ['OP', sqliteStats.opRows, 'Outpatient'],
+                  ['APC', sqliteStats.apcRows, 'Admitted patient care'],
+                ] as const
+              ).map(([abbr, n, title]) => (
+                <div
+                  key={abbr}
+                  title={title}
+                  style={{
+                    border: '1px solid rgba(15, 23, 42, 0.12)',
+                    borderRadius: '8px',
+                    padding: '0.65rem 0.75rem',
+                    background: 'rgba(255, 255, 255, 0.65)',
+                  }}
+                >
+                  <div className="note" style={{ margin: 0, fontSize: '0.75rem', opacity: 0.85 }}>
+                    {abbr}
+                  </div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    {formatRowCount(n)}
+                  </div>
+                  <div className="note" style={{ margin: '0.15rem 0 0', fontSize: '0.7rem' }}>
+                    rows
+                  </div>
+                </div>
+              ))}
+            </div>
+            {dbFile?.bytes != null ? (
+              <p className="note" style={{ marginBottom: '0.75rem' }}>
+                On-disk database: <strong>{formatBytes(dbFile.bytes)}</strong>
+                {dbFile.path ? (
+                  <>
+                    {' '}
+                    (<code style={{ fontSize: '0.8rem' }}>{dbFile.path}</code>)
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+            <p className="note" style={{ marginBottom: '0.75rem', fontSize: '0.82rem' }}>
+              Row totals use fast sequence estimates suitable for large files (same numbers as the API). For empty tables,
+              run ingest with the env vars above.
+            </p>
+          </>
+        ) : healthLoading ? (
+          <p className="note" style={{ marginBottom: '0.75rem' }}>
+            Loading dataset statistics…
+          </p>
+        ) : !healthError ? (
+          <p className="note" style={{ marginBottom: '0.75rem' }}>
+            No row counts returned yet. Start the API and refresh, or run ingest.
+          </p>
+        ) : null}
+        <details className="note">
+          <summary style={{ cursor: 'pointer', marginBottom: '0.35rem' }}>Raw health JSON</summary>
+          <pre className="note" style={{ overflow: 'auto', maxHeight: '14rem', margin: 0 }}>
+            {health || '—'}
+          </pre>
+        </details>
       </article>
 
       <article className="card">
         <h2>FTS / prefix search (paid)</h2>
+        {sqliteStats ? (
+          <p className="note" style={{ marginBottom: '0.5rem' }}>
+            <strong>SQLite rows:</strong> AE {sqliteStats.aeRows ?? 0} · OP {sqliteStats.opRows ?? 0} · APC{' '}
+            {sqliteStats.apcRows ?? 0}
+            {sqliteStats.ftsRows != null ? ` · FTS ${sqliteStats.ftsRows}` : null}.{' '}
+            {(sqliteStats.opRows === 0 || sqliteStats.apcRows === 0) && (
+              <>
+                If <strong>OP</strong> or <strong>APC</strong> is 0, ingest those CSVs (
+                <code>HES_OP_DIR</code>, <code>HES_APC_DIR</code>) — &quot;OP only&quot; / &quot;APC only&quot; search
+                returns nothing until then.
+              </>
+            )}
+          </p>
+        ) : null}
         <p className="note">
           SQLite <strong>FTS5</strong> on LSOA + pseudo HES id; <strong>auto</strong> falls back to prefix match if FTS
           returns no rows.
@@ -281,9 +418,42 @@ function HesScaleGrid({
         <button type="button" className="secondary" onClick={() => refreshTxLog()}>
           Refresh log
         </button>
-        {txRows.length > 0 ? (
+        <div className="actions" role="group" aria-label="Filter by wallet mode">
+          <button
+            type="button"
+            className={txModeFilter === 'all' ? 'primary' : 'secondary'}
+            onClick={() => {
+              setTxModeFilter('all')
+              setTxPage(1)
+            }}
+          >
+            All modes
+          </button>
+          <button
+            type="button"
+            className={txModeFilter === 'metamask' ? 'primary' : 'secondary'}
+            onClick={() => {
+              setTxModeFilter('metamask')
+              setTxPage(1)
+            }}
+          >
+            MetaMask
+          </button>
+          <button
+            type="button"
+            className={txModeFilter === 'circle' ? 'primary' : 'secondary'}
+            onClick={() => {
+              setTxModeFilter('circle')
+              setTxPage(1)
+            }}
+          >
+            Circle
+          </button>
+        </div>
+        {filteredTxRows.length > 0 ? (
           <p className="note">
-            Page <strong>{txPageSafe}</strong> of <strong>{txTotalPages}</strong> · {txRows.length} total
+            Page <strong>{txPageSafe}</strong> of <strong>{txTotalPages}</strong> · {filteredTxRows.length} shown ·{' '}
+            {txRows.length} total
           </p>
         ) : null}
         <div className="actions" style={{ marginTop: '0.5rem' }}>
@@ -304,13 +474,15 @@ function HesScaleGrid({
             Next
           </button>
         </div>
-        {txRows.length === 0 ? (
-          <p className="note">No scale transactions yet.</p>
+        {filteredTxRows.length === 0 ? (
+          <p className="note">No scale transactions for this mode filter yet.</p>
         ) : (
           <div className="tx-table-wrap">
             <table className="tx-table">
               <thead>
                 <tr>
+                  <th>Time</th>
+                  <th>Mode</th>
                   <th>Endpoint</th>
                   <th>Paid</th>
                   <th>Ref / tx</th>
@@ -330,6 +502,16 @@ function HesScaleGrid({
                         : row.txHash
                   return (
                     <tr key={`${row.txHash}-${row.createdAt}-${row.endpoint}`}>
+                      <td>{formatTxTime(row.createdAt)}</td>
+                      <td>
+                        {row.walletMode === 'circle' ? (
+                          <span className="tx-badge tx-badge--chain">Circle</span>
+                        ) : row.walletMode === 'metamask' ? (
+                          <span className="tx-badge tx-badge--audit">MetaMask</span>
+                        ) : (
+                          <span className="tx-muted">—</span>
+                        )}
+                      </td>
                       <td>
                         <code>{row.endpoint}</code>
                       </td>
@@ -364,20 +546,53 @@ function HesScaleGrid({
 
 export default function NhsHesScaleApp() {
   const [health, setHealth] = useState<string>('')
+  const [healthLoading, setHealthLoading] = useState(true)
+  const [healthError, setHealthError] = useState<string | null>(null)
+  const [dbFile, setDbFile] = useState<HealthJson['dbFile'] | null>(null)
+  const [sqliteStats, setSqliteStats] = useState<HealthJson['sqlite'] | null>(null)
   const [x402Provider, setX402Provider] = useState<X402FacilitatorId>(() => getX402FacilitatorPreference())
 
   useEffect(() => {
+    let cancelled = false
     void (async () => {
-      const res = await fetch('/api/neighbourhood/insights/health')
-      const j = (await res.json()) as HealthJson
-      const pretty = {
-        ...j,
-        dbFile: j.dbFile
-          ? { ...j.dbFile, bytesHuman: j.dbFile.bytes != null ? formatBytes(j.dbFile.bytes) : undefined }
-          : undefined,
+      setHealthError(null)
+      setHealthLoading(true)
+      try {
+        const res = await fetch('/api/neighbourhood/insights/health')
+        const text = await res.text()
+        if (!res.ok) {
+          throw new Error(text ? `${res.status}: ${text.slice(0, 200)}` : `HTTP ${res.status}`)
+        }
+        let j: HealthJson
+        try {
+          j = JSON.parse(text) as HealthJson
+        } catch {
+          throw new Error('Response was not JSON (is the API running on port 8787?)')
+        }
+        if (cancelled) return
+        setSqliteStats(j.sqlite ?? null)
+        setDbFile(j.dbFile ?? null)
+        const pretty = {
+          ...j,
+          dbFile: j.dbFile
+            ? { ...j.dbFile, bytesHuman: j.dbFile.bytes != null ? formatBytes(j.dbFile.bytes) : undefined }
+            : undefined,
+        }
+        setHealth(JSON.stringify(pretty, null, 2))
+      } catch (e) {
+        if (!cancelled) {
+          setHealthError(e instanceof Error ? e.message : String(e))
+          setSqliteStats(null)
+          setDbFile(null)
+          setHealth('')
+        }
+      } finally {
+        if (!cancelled) setHealthLoading(false)
       }
-      setHealth(JSON.stringify(pretty, null, 2))
     })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const payLabel = x402Provider === 'thirdweb' ? 'thirdweb x402' : 'Circle Gateway x402'
@@ -392,6 +607,10 @@ export default function NhsHesScaleApp() {
           session={session}
           payLabel={payLabel}
           health={health}
+          healthLoading={healthLoading}
+          healthError={healthError}
+          dbFile={dbFile}
+          sqliteStats={sqliteStats}
           x402Provider={x402Provider}
           onX402ProviderChange={(v) => {
             setX402FacilitatorPreference(v)

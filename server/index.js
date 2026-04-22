@@ -1,10 +1,12 @@
 import 'dotenv/config'
 import express from 'express'
 import multer from 'multer'
+import { randomUUID } from 'node:crypto'
 import { Receipt } from './receiptWire.js'
 import * as x402Env from './x402Env.js'
 import { createGatewayMiddleware } from '@circle-fin/x402-batching/server'
-import { createPublicClient, http } from 'viem'
+import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets'
+import { createPublicClient, http, parseUnits } from 'viem'
 import { arcTestnet } from 'viem/chains'
 import {
   createBattleEntryIntent,
@@ -52,11 +54,27 @@ const arcGateway = createGatewayMiddleware({
   sellerAddress: x402SellerAddress,
   networks: ['eip155:5042002'],
 })
+const ARC_TESTNET_USDC = '0x3600000000000000000000000000000000000000'
+const ARC_TESTNET_GATEWAY_WALLET = '0x0077777d7EBA4688BDeF3E311b846F25870A19B9'
+const GATEWAY_API_TESTNET = 'https://gateway-api-testnet.circle.com/v1'
+const ARC_GATEWAY_DOMAIN = 26
 
 function gatewayRequireUsd(price) {
   const s = typeof price === 'number' ? price.toFixed(2) : String(price)
   const withDollar = s.startsWith('$') ? s : `$${s}`
   return (req, res, next) => arcGateway.require(withDollar)(req, res, next)
+}
+
+function circleDevWalletClientOrError() {
+  const apiKey = process.env.CIRCLE_API_KEY?.trim()
+  const entitySecret = process.env.CIRCLE_ENTITY_SECRET?.trim()
+  if (!apiKey || !entitySecret) {
+    return {
+      error:
+        'Missing CIRCLE_API_KEY or CIRCLE_ENTITY_SECRET on the server. Set them in .env and restart the API.',
+    }
+  }
+  return { client: initiateDeveloperControlledWalletsClient({ apiKey, entitySecret }) }
 }
 
 const judgeScores = []
@@ -82,6 +100,44 @@ const arcPublicClient = createPublicClient({
 mountCircleModularProxy(app)
 
 app.use(express.json({ limit: '1mb' }))
+
+app.use((req, res, next) => {
+  if (req.path === '/api/neighbourhood/insights/lsoa') {
+    // #region agent log
+    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+      body: JSON.stringify({
+        sessionId: '8e1b23',
+        runId: 'run-timeout-2',
+        hypothesisId: 'U3',
+        location: 'server/index.js:middleware:lsoa-entry',
+        message: 'LSOA request entered express app',
+        data: { method: req.method },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+    res.on('finish', () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+        body: JSON.stringify({
+          sessionId: '8e1b23',
+          runId: 'run-timeout-2',
+          hypothesisId: 'U3',
+          location: 'server/index.js:middleware:lsoa-finish',
+          message: 'LSOA request finished in express app',
+          data: { status: res.statusCode },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+    })
+  }
+  next()
+})
 
 function toFetchRequest(req) {
   const origin = `${req.protocol}://${req.get('host')}`
@@ -459,6 +515,318 @@ app.post('/api/arc/faucet', async (req, res) => {
     address: normalized,
   })
 })
+
+/** Circle developer-controlled ARC wallet (server-side; secrets never touch browser). */
+app.post('/api/circle/dev-wallet', async (_req, res) => {
+  const { client, error } = circleDevWalletClientOrError()
+  if (error) return res.status(500).json({ error })
+
+  try {
+    const walletSet = await client.createWalletSet({
+      name: `ClinicalArc ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+      idempotencyKey: randomUUID(),
+    })
+    const walletSetId = walletSet?.data?.walletSet?.id
+    if (!walletSetId) {
+      return res.status(502).json({ error: 'Circle createWalletSet did not return walletSet id.' })
+    }
+
+    const walletsRes = await client.createWallets({
+      walletSetId,
+      blockchains: ['ARC-TESTNET'],
+      count: 1,
+      idempotencyKey: randomUUID(),
+    })
+    const created = walletsRes?.data?.wallets?.[0]
+    if (!created?.id || !created?.address) {
+      return res.status(502).json({ error: 'Circle createWallets did not return wallet id/address.' })
+    }
+
+    return res.status(201).json({
+      ok: true,
+      walletSetId,
+      walletId: created.id,
+      address: created.address,
+      blockchain: 'ARC-TESTNET',
+      note: 'Fund this Circle wallet via https://faucet.circle.com before submitting paid transactions.',
+    })
+  } catch (e) {
+    const status = Number(e?.response?.status) || 502
+    const details = e?.response?.data ?? e?.message ?? String(e)
+    return res.status(status).json({ error: 'Circle wallet creation failed.', details })
+  }
+})
+
+/** Server-side EIP-712 signing for Circle developer-controlled wallets (used by x402 Circle mode). */
+app.post('/api/circle/sign-typed-data', async (req, res) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+    body: JSON.stringify({
+      sessionId: '8e1b23',
+      runId: 'run-timeout-2',
+      hypothesisId: 'U1_U2',
+      location: 'server/index.js:/api/circle/sign-typed-data:entry',
+      message: 'Circle sign endpoint entered',
+      data: { hasWalletId: typeof req.body?.walletId === 'string' },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {})
+  // #endregion
+  const { client, error } = circleDevWalletClientOrError()
+  if (error) return res.status(500).json({ error })
+
+  const walletId = typeof req.body?.walletId === 'string' ? req.body.walletId.trim() : ''
+  const walletAddress = typeof req.body?.walletAddress === 'string' ? req.body.walletAddress.trim().toLowerCase() : ''
+  const typedData = req.body?.typedData
+  if (!walletId || !typedData || typeof typedData !== 'object') {
+    return res.status(400).json({
+      error: 'Invalid payload. Expected walletId (string) and typedData (object).',
+    })
+  }
+
+  try {
+    if (walletAddress) {
+      const walletRes = await client.getWallet({ id: walletId })
+      const actual = String(walletRes?.data?.wallet?.address || '').toLowerCase()
+      if (!actual) return res.status(404).json({ error: 'Circle wallet not found.' })
+      if (actual !== walletAddress) {
+        return res.status(403).json({ error: 'walletAddress does not match walletId.' })
+      }
+    }
+
+    const canonical = canonicalizeEip712TypedData(typedData)
+    const typedDataJson = JSON.stringify(canonical)
+    let signRes
+    if (walletAddress) {
+      try {
+        signRes = await client.signTypedData({
+          walletAddress,
+          blockchain: 'ARC-TESTNET',
+          data: typedDataJson,
+          memo: 'ClinicalArc x402 payment signature',
+          idempotencyKey: randomUUID(),
+        })
+      } catch {
+        signRes = await client.signTypedData({
+          walletId,
+          data: typedDataJson,
+          memo: 'ClinicalArc x402 payment signature',
+          idempotencyKey: randomUUID(),
+        })
+      }
+    } else {
+      signRes = await client.signTypedData({
+        walletId,
+        data: typedDataJson,
+        memo: 'ClinicalArc x402 payment signature',
+        idempotencyKey: randomUUID(),
+      })
+    }
+    const signature = signRes?.data?.signature
+    if (!signature) {
+      return res.status(502).json({ error: 'Circle signTypedData did not return signature.' })
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+      body: JSON.stringify({
+        sessionId: '8e1b23',
+        runId: 'run-timeout-2',
+        hypothesisId: 'U2',
+        location: 'server/index.js:/api/circle/sign-typed-data:success',
+        message: 'Circle sign endpoint returning signature',
+        data: { walletId, hasSignature: true },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+    return res.status(200).json({ ok: true, walletId, signature })
+  } catch (e) {
+    const status = Number(e?.response?.status) || 502
+    const details = e?.response?.data ?? e?.message ?? String(e)
+    console.error('[circle-sign-typed-data] failed', { status, details })
+    return res.status(status).json({ error: 'Circle typed-data signing failed.', details })
+  }
+})
+
+/** Top up Circle Gateway balance using Circle developer wallet (approve + deposit). */
+app.post('/api/circle/gateway-deposit', async (req, res) => {
+  const { client, error } = circleDevWalletClientOrError()
+  if (error) return res.status(500).json({ error })
+
+  const walletId = typeof req.body?.walletId === 'string' ? req.body.walletId.trim() : ''
+  const walletAddress = typeof req.body?.walletAddress === 'string' ? req.body.walletAddress.trim().toLowerCase() : ''
+  const amountHuman = typeof req.body?.amount === 'string' ? req.body.amount.trim() : ''
+  if (!walletId || !walletAddress || !/^\d+(\.\d+)?$/.test(amountHuman) || Number(amountHuman) <= 0) {
+    return res.status(400).json({
+      error: 'Invalid payload. Expected walletId, walletAddress, amount (> 0).',
+    })
+  }
+
+  try {
+    const walletRes = await client.getWallet({ id: walletId })
+    const actual = String(walletRes?.data?.wallet?.address || '').toLowerCase()
+    if (!actual) return res.status(404).json({ error: 'Circle wallet not found.' })
+    if (actual !== walletAddress) {
+      return res.status(403).json({ error: 'walletAddress does not match walletId.' })
+    }
+
+    const amountRaw = parseUnits(amountHuman, 6).toString()
+    const fee = { type: 'level', config: { feeLevel: 'MEDIUM' } }
+    const approveTx = await client.createContractExecutionTransaction({
+      walletId,
+      amount: '0',
+      contractAddress: ARC_TESTNET_USDC,
+      abiFunctionSignature: 'approve(address,uint256)',
+      abiParameters: [ARC_TESTNET_GATEWAY_WALLET, amountRaw],
+      fee,
+      idempotencyKey: randomUUID(),
+      refId: 'clinicalarc-circle-gateway-approve',
+    })
+
+    const depositTx = await client.createContractExecutionTransaction({
+      walletId,
+      amount: '0',
+      contractAddress: ARC_TESTNET_GATEWAY_WALLET,
+      abiFunctionSignature: 'deposit(address,uint256)',
+      abiParameters: [ARC_TESTNET_USDC, amountRaw],
+      fee,
+      idempotencyKey: randomUUID(),
+      refId: 'clinicalarc-circle-gateway-deposit',
+    })
+
+    return res.status(200).json({
+      ok: true,
+      walletId,
+      walletAddress,
+      amount: amountHuman,
+      approveTxId: approveTx?.data?.id ?? null,
+      approveTxHash: approveTx?.data?.txHash ?? null,
+      depositTxId: depositTx?.data?.id ?? null,
+      depositTxHash: depositTx?.data?.txHash ?? null,
+      note: 'Circle submitted approve + deposit transactions. Refresh balances after confirmation.',
+    })
+  } catch (e) {
+    const status = Number(e?.response?.status) || 502
+    const details = e?.response?.data ?? e?.message ?? String(e)
+    return res.status(status).json({ error: 'Circle Gateway deposit failed.', details })
+  }
+})
+
+/** Read Circle Gateway available USDC for a depositor address (Arc Testnet). */
+app.post('/api/circle/gateway-balance', async (req, res) => {
+  const walletAddress = typeof req.body?.walletAddress === 'string' ? req.body.walletAddress.trim().toLowerCase() : ''
+  if (!walletAddress || !walletAddress.startsWith('0x')) {
+    return res.status(400).json({ error: 'Invalid payload. Expected walletAddress.' })
+  }
+  try {
+    const r = await fetch(`${GATEWAY_API_TESTNET}/balances`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: 'USDC',
+        sources: [{ depositor: walletAddress, domain: ARC_GATEWAY_DOMAIN }],
+      }),
+    })
+    const payload = await r.json().catch(() => ({}))
+    if (!r.ok) {
+      return res.status(r.status).json({
+        error: payload?.message || `Gateway balance request failed (HTTP ${r.status}).`,
+        details: payload,
+      })
+    }
+    const balance = Array.isArray(payload?.balances) && payload.balances[0] ? String(payload.balances[0].balance || '0') : '0'
+    return res.status(200).json({ ok: true, walletAddress, balance, token: 'USDC' })
+  } catch (e) {
+    return res.status(502).json({ error: 'Circle Gateway balance request failed.', details: e?.message ?? String(e) })
+  }
+})
+
+function canonicalizeEip712TypedData(input) {
+  const src = input && typeof input === 'object' ? input : {}
+  const typesRaw = src.types && typeof src.types === 'object' ? src.types : {}
+  const primaryTypeRaw = typeof src.primaryType === 'string' ? src.primaryType : ''
+  const candidatePrimaryTypes = Object.keys(typesRaw).filter((k) => k !== 'EIP712Domain')
+  const primaryType = candidatePrimaryTypes.includes(primaryTypeRaw)
+    ? primaryTypeRaw
+    : candidatePrimaryTypes[0] || primaryTypeRaw || 'Data'
+
+  const normalizedTypes = {}
+  for (const [typeName, fields] of Object.entries(typesRaw)) {
+    if (!Array.isArray(fields)) continue
+    normalizedTypes[typeName] = fields
+      .filter((f) => f && typeof f === 'object' && typeof f.name === 'string' && typeof f.type === 'string')
+      .map((f) => ({ name: f.name, type: f.type }))
+  }
+  if (!Array.isArray(normalizedTypes.EIP712Domain) || normalizedTypes.EIP712Domain.length === 0) {
+    normalizedTypes.EIP712Domain = inferEip712DomainType(src.domain)
+  }
+  if (!normalizedTypes[primaryType]) {
+    normalizedTypes[primaryType] = inferTypeFromMessage(src.message)
+  }
+
+  const domain = normalizeByType(src.domain, 'EIP712Domain', normalizedTypes)
+  const message = normalizeByType(src.message, primaryType, normalizedTypes)
+  const out = {
+    types: normalizedTypes,
+    primaryType,
+    domain,
+    message,
+  }
+  return JSON.parse(
+    JSON.stringify(out, (_k, v) => {
+      if (typeof v === 'bigint') return v.toString()
+      return v
+    }),
+  )
+}
+
+function inferTypeFromMessage(message) {
+  const src = message && typeof message === 'object' ? message : {}
+  return Object.keys(src).map((name) => ({ name, type: 'string' }))
+}
+
+function inferEip712DomainType(domain) {
+  const src = domain && typeof domain === 'object' ? domain : {}
+  const known = {
+    name: 'string',
+    version: 'string',
+    chainId: 'uint256',
+    verifyingContract: 'address',
+    salt: 'bytes32',
+  }
+  return Object.keys(src).map((name) => ({ name, type: known[name] || 'string' }))
+}
+
+function normalizeByType(source, typeName, typesMap) {
+  const typeDef = Array.isArray(typesMap?.[typeName]) ? typesMap[typeName] : null
+  const src = source && typeof source === 'object' ? source : {}
+  if (!Array.isArray(typeDef)) return src
+  const out = {}
+  for (const def of typeDef) {
+    if (!def || typeof def !== 'object' || typeof def.name !== 'string') continue
+    if (!Object.prototype.hasOwnProperty.call(src, def.name)) continue
+    out[def.name] = normalizeTypedValue(src[def.name], def.type, typesMap)
+  }
+  return out
+}
+
+function normalizeTypedValue(value, typeName, typesMap) {
+  if (typeof value === 'bigint') return value.toString()
+  if (value == null) return value
+  if (typeName.endsWith('[]')) {
+    const baseType = typeName.slice(0, -2)
+    if (!Array.isArray(value)) return []
+    return value.map((v) => normalizeTypedValue(v, baseType, typesMap))
+  }
+  if (typesMap?.[typeName]) {
+    return normalizeByType(value, typeName, typesMap)
+  }
+  return value
+}
 
 app.post(
   '/api/battle/live/entry/:network',

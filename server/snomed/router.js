@@ -22,11 +22,32 @@ export function createSnomedRouter() {
     }
     try {
       const result = await fhirLookupSnomedConcept(id)
+      const issueCode =
+        result &&
+        result.body &&
+        typeof result.body === 'object' &&
+        Array.isArray(result.body.issue) &&
+        result.body.issue[0] &&
+        typeof result.body.issue[0] === 'object'
+          ? String(result.body.issue[0].code || '')
+          : ''
+      const looksLikeMissingLocalEdition = result.status === 404 && issueCode === 'not-found'
       const code = result.ok
         ? 200
         : result.status >= 400 && result.status < 600
           ? result.status
           : 502
+      if (looksLikeMissingLocalEdition) {
+        return res.status(code).json({
+          ...result,
+          hint:
+            'Concept not found in this Snowstorm content set/branch. If this concept exists in NHS Browser, your local Snowstorm likely does not have the same UK edition release loaded.',
+          references: {
+            nhsBrowser: `https://termbrowser.nhs.uk/?perspective=full&conceptId1=${encodeURIComponent(id)}`,
+            snomedInternational: 'https://browser.ihtsdotools.org/',
+          },
+        })
+      }
       return res.status(code).json(result)
     } catch (e) {
       return res.status(502).json({ error: String(e?.message ?? e) })

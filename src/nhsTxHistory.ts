@@ -1,5 +1,7 @@
 import type { NhsNetwork } from './nhsSession'
 
+export type WalletMode = 'metamask' | 'circle'
+
 export type NhsTxItem = {
   /** On-chain receipt (`0x…`) or synthetic `audit:…` id when no on-chain receipt was returned */
   txHash: string
@@ -11,6 +13,8 @@ export type NhsTxItem = {
   auditRef?: string
   /** Human-readable list price for this paid call (e.g. gate amount), when known */
   paidDisplay?: string
+  /** Wallet mode active when the paid call was made */
+  walletMode?: WalletMode
 }
 
 const KEY = 'nhs_tx_history_v1'
@@ -67,11 +71,14 @@ const HES_SCALE_ENDPOINTS = new Set([
   '/api/neighbourhood/scale/cross-summary',
 ])
 
+const DMD_ENDPOINTS = new Set(['/api/dmd/lookup', '/api/dmd/summary'])
+
 /** Server gate price for those routes (`server/neighbourhood/router.js`, `server/openehr/bffRouter.js`). */
 export const NEIGHBOURHOOD_X402_PRICE_DISPLAY = '$0.01'
 
 export function paidDisplayForNeighbourhoodEndpoint(endpoint: string): string | undefined {
   if (NEIGHBOURHOOD_PAID_ENDPOINTS.has(endpoint)) return NEIGHBOURHOOD_X402_PRICE_DISPLAY
+  if (DMD_ENDPOINTS.has(endpoint)) return NEIGHBOURHOOD_X402_PRICE_DISPLAY
   return undefined
 }
 
@@ -85,6 +92,10 @@ export function listNhsTxHistoryHesScale(network: NhsNetwork): NhsTxItem[] {
   return listNhsTxHistory().filter(
     (row) => row.network === network && HES_SCALE_ENDPOINTS.has(row.endpoint),
   )
+}
+
+export function listNhsTxHistoryDmd(network: NhsNetwork): NhsTxItem[] {
+  return listNhsTxHistory().filter((row) => row.network === network && DMD_ENDPOINTS.has(row.endpoint))
 }
 
 export function explorerUrl(_network: NhsNetwork, txHash: string): string | null {

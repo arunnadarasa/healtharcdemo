@@ -9,6 +9,26 @@ import {
   searchHesFts,
   searchHesPrefix,
 } from './hesDb.js'
+
+function emptySearchHint(dataset, rowCount, stats) {
+  if (rowCount > 0) return null
+  if (dataset === 'op' && stats.opRows === 0) {
+    return 'No OP rows in SQLite. Ingest outpatient CSVs: set HES_OP_DIR and run npm run ingest:hes (see README).'
+  }
+  if (dataset === 'apc' && stats.apcRows === 0) {
+    return 'No APC rows in SQLite. Ingest admitted-patient CSVs: set HES_APC_DIR and run npm run ingest:hes.'
+  }
+  if (dataset === 'ae' && stats.aeRows === 0) {
+    return 'No AE rows in SQLite. Set HES_AE_DIR (or HES_SAMPLE_DIR) and run npm run ingest:hes.'
+  }
+  if (stats.aeRows === 0 && stats.opRows === 0 && stats.apcRows === 0) {
+    return 'HES tables are empty — run ingest:hes after pointing env vars at your NHS Digital artificial data folders.'
+  }
+  if (dataset === 'all' && stats.ftsRows === 0 && stats.aeRows + stats.opRows + stats.apcRows > 0) {
+    return 'FTS index is empty but base tables have rows — run npm run hes:rebuild-fts, then search again.'
+  }
+  return 'No rows matched this query in the selected dataset. Try a longer LSOA (e.g. E01010560), use "all datasets", or confirm your ingest included this care setting.'
+}
 import { getEhrbaseHealth } from '../openehr/ehrbaseClient.js'
 import { getIntegrationContext, snomedReferencesWithUrls } from './snomedContext.js'
 import { getSnowstormStatus } from '../snomed/snowstormClient.js'
@@ -77,9 +97,39 @@ export function createNeighbourhoodRouter(deps) {
         amount: '0.01',
       },
       (req, res, paymentCtx) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+          body: JSON.stringify({
+            sessionId: '8e1b23',
+            runId: 'run-timeout-1',
+            hypothesisId: 'T2_T5',
+            location: 'server/neighbourhood/router.js:/insights/lsoa:entry',
+            message: 'LSOA route entered after gateway guard',
+            data: { hasPaymentRef: !!paymentCtx.paymentReceiptRef, hasLsoa: typeof req.body?.lsoa === 'string' },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
         const { lsoa } = req.body ?? {}
         const filter = typeof lsoa === 'string' ? lsoa.trim() : ''
         const rows = aggregateAeByLsoa(filter || null)
+        // #region agent log
+        fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+          body: JSON.stringify({
+            sessionId: '8e1b23',
+            runId: 'run-timeout-1',
+            hypothesisId: 'T5',
+            location: 'server/neighbourhood/router.js:/insights/lsoa:result-ready',
+            message: 'LSOA aggregate completed; preparing JSON response',
+            data: { rowCount: Array.isArray(rows) ? rows.length : -1, filterLength: filter.length },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
         res.json({
           ok: true,
           receiptRef: paymentCtx.paymentReceiptRef ?? null,
@@ -193,6 +243,8 @@ export function createNeighbourhoodRouter(deps) {
               searchMode = 'prefix'
             }
           }
+          const tableCounts = hesStats()
+          const emptyHint = emptySearchHint(ds, rows.length, tableCounts)
           return res.json({
             ok: true,
             receiptRef: paymentCtx.paymentReceiptRef ?? null,
@@ -200,6 +252,8 @@ export function createNeighbourhoodRouter(deps) {
             dataset: ds,
             searchMode,
             rows,
+            tableCounts,
+            emptyHint,
             disclaimer: 'Synthetic artificial HES — demo search only.',
           })
         } catch (e) {

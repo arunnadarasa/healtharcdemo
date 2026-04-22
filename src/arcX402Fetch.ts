@@ -9,6 +9,10 @@ import { ExactEvmScheme, registerExactEvmScheme } from '@x402/evm/exact/client'
 import { createWalletClient, custom, fallback, http, type WalletClient } from 'viem'
 import { arcTestnetChain } from './arcChains'
 import type { BrowserEthereumProvider } from './evmWallet'
+type X402EvmSigner = {
+  address: `0x${string}`
+  signTypedData: (params: Record<string, unknown>) => Promise<string>
+}
 
 function wrapTransportWithArcPublicRpc(
   ethereum: BrowserEthereumProvider,
@@ -30,14 +34,7 @@ function evmSignerFromWallet(walletClient: WalletClient, walletAddress: `0x${str
   }
 }
 
-function buildArcX402Client(ethereum: BrowserEthereumProvider, walletAddress: `0x${string}`) {
-  const rpc = arcTestnetChain.rpcUrls.default.http[0]
-  const walletClient = createWalletClient({
-    account: walletAddress,
-    chain: arcTestnetChain,
-    transport: wrapTransportWithArcPublicRpc(ethereum, rpc),
-  })
-  const signer = evmSignerFromWallet(walletClient, walletAddress)
+function buildArcX402ClientFromSigner(signer: X402EvmSigner) {
   const client = new x402Client()
   registerBatchScheme(client, {
     // Structural match at runtime; viem JSON-RPC account types are narrower than x402 BatchEvmSigner.
@@ -47,8 +44,24 @@ function buildArcX402Client(ethereum: BrowserEthereumProvider, walletAddress: `0
   return new x402HTTPClient(client)
 }
 
+function buildArcX402Client(ethereum: BrowserEthereumProvider, walletAddress: `0x${string}`) {
+  const rpc = arcTestnetChain.rpcUrls.default.http[0]
+  const walletClient = createWalletClient({
+    account: walletAddress,
+    chain: arcTestnetChain,
+    transport: wrapTransportWithArcPublicRpc(ethereum, rpc),
+  })
+  const signer = evmSignerFromWallet(walletClient, walletAddress)
+  return buildArcX402ClientFromSigner(signer)
+}
+
 export function createArcX402PaymentFetch(ethereum: BrowserEthereumProvider, walletAddress: `0x${string}`) {
   const httpClient = buildArcX402Client(ethereum, walletAddress)
+  return wrapFetchWithPayment(fetch, httpClient)
+}
+
+export function createArcX402PaymentFetchWithSigner(signer: X402EvmSigner) {
+  const httpClient = buildArcX402ClientFromSigner(signer)
   return wrapFetchWithPayment(fetch, httpClient)
 }
 
@@ -76,6 +89,16 @@ export function createExactArcX402PaymentFetch(ethereum: BrowserEthereumProvider
     transport: wrapTransportWithArcPublicRpc(ethereum, rpc),
   })
   const signer = evmSignerFromWallet(walletClient, walletAddress)
+  const client = new x402Client()
+  registerExactEvmScheme(client, {
+    signer: signer as never,
+    networks: ['eip155:5042002'],
+  })
+  normalizeThirdwebPaymentRequirements(client)
+  return wrapFetchWithPayment(fetch, new x402HTTPClient(client))
+}
+
+export function createExactArcX402PaymentFetchWithSigner(signer: X402EvmSigner) {
   const client = new x402Client()
   registerExactEvmScheme(client, {
     signer: signer as never,

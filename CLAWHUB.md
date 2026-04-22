@@ -284,3 +284,85 @@ Core docs to reuse:
 7. NHS payment gate + receipt reference: `server/nhs/payment.js`, `server/nhs/router.js`, `src/nhsApi.ts`; SQLite schema in `server/nhs/db.js` (`gp_access_requests.receipt_ref`)
 8. TIP-20 launch + mint (issuer role, avoid `grantRolesSync` in browser): `src/tempoTip20Launch.ts`, `src/NhsTip20App.tsx`
 
+---
+
+## Latest learnings (Apr 2026)
+
+### A) HES scale reliability / performance
+
+1. **`COUNT(*)` on huge HES tables can freeze API responses**
+   - Symptom: `/api/neighbourhood/insights/health` hangs; UI shows `Loading…`; MetaMask never gets to paid flow prompts.
+   - Root cause: synchronous SQLite scans on multi-million-row tables / FTS from Node main thread.
+   - Fix used:
+     - `hesStats()` switched to fast estimates (`sqlite_sequence` / `MAX(rowid)` fallback, and `MAX(id)` for `hes_fts_docsize`).
+     - Added short timeout in EHRbase health fetch to avoid long external hangs.
+
+2. **Clearing one dataset via `DELETE FROM hes_fts WHERE dataset='...'` is too slow**
+   - `dataset` is UNINDEXED in the FTS table.
+   - Better pattern:
+     - clear base table (`hes_ae` / `hes_op` / `hes_apc`)
+     - call `rebuildHesFtsFromBaseTables(db)`.
+
+3. **When re-ingesting “remainder” of capped AE loads**
+   - If prior ingest used row limits, do not append from file start (duplicates).
+   - Correct approach:
+     - clear AE base rows,
+     - rebuild FTS from remaining datasets,
+     - ingest full AE set with no per-file cap.
+
+### B) NHS x402 tx history behavior
+
+4. **Paid NHS writes are enforced through `nhsX402Fetch`**
+   - Paid POSTs in client API path are always routed through x402 payment fetch.
+   - No user-facing “direct fetch” payment mode for those paid routes.
+
+5. **“Audit” rows are expected when no tx hash is surfaced**
+   - Audit means request/receipt metadata was logged but no usable tx hash was found in payload/headers.
+   - It does not prove settlement failed off-chain.
+
+6. **Tx hash extraction needed broader parsing**
+   - Added parsing for multiple header variants + nested JSON fields (`transactionHash`, `hash`, `payment*`, `receiptRef`, etc.).
+   - This reduced false “audit-only” entries and improved `/tx/0x...` linking.
+
+### C) Wallet UX and Circle integration
+
+7. **Circle developer wallet endpoint added**
+   - `POST /api/circle/dev-wallet` in `server/index.js`.
+   - Uses `CIRCLE_API_KEY` + `CIRCLE_ENTITY_SECRET` server-side only.
+   - Returns `walletSetId`, `walletId`, `address`, `blockchain`.
+
+8. **Top-bar wallet UX now has two explicit modes**
+   - `MetaMask` mode (browser wallet connect/sign flow)
+   - `Circle wallet` mode (create/use server-created wallet identity)
+   - Important caveat: current x402 client signing still relies on browser wallet injection for paid POST signature flow.
+
+9. **Regression caught quickly**
+   - Missing `randomUUID` import broke Circle wallet creation endpoint.
+   - Fix: import from `node:crypto`; include endpoint smoke test after restart.
+
+### D) Snowstorm / Docker ops
+
+10. **Snowstorm startup can fail from memory pressure**
+   - Symptom: `snowstorm-elasticsearch` exits `137`; Snowstorm logs `es: No address associated with hostname`.
+   - Fix in `docker-compose.snowstorm.yml`:
+     - reduce ES JVM heap (`-Xms512m -Xmx512m`)
+     - reduce Snowstorm JVM heap (`-Xms512m -Xmx1g`)
+
+11. **RF2 local import working flow**
+   - Start Snowstorm compose, wait for health `UP`.
+   - Use `/imports` to create import job (ID in `Location` header).
+   - Upload archive to `/imports/{id}/archive`.
+   - Poll `/imports/{id}` until completion.
+   - For this run: used local folder `uk_sct2cl_42.0.0_20260408000001Z` and imported UK Edition RF2 archive.
+
+12. **`Exited (137)` is usually OOM, but always verify current state**
+   - Meaning: process was killed with `SIGKILL` (`128 + 9 = 137`), commonly memory pressure.
+   - Current verified state (post-tuning):
+     - `snowstorm`, `snowstorm-elasticsearch`, `ehrbase`, `ehrdb` are running.
+     - `docker inspect ... .State.OOMKilled` reports `false` and `ExitCode=0` for key containers.
+   - Practical check commands:
+     - `docker ps -a --format 'table {{.Names}}\t{{.Status}}'`
+     - `docker inspect <name> --format 'status={{.State.Status}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}}'`
+     - `docker stats --no-stream` to watch memory headroom under load.
+   - Note: with Docker memory around ~3.8GiB and multiple stacks active, keep JVM heap conservative (see item 10).
+

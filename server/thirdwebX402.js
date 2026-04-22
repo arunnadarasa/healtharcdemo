@@ -141,6 +141,23 @@ export function createNeighbourhoodThirdwebPaymentMiddleware() {
     return (_req, _res, next) => next()
   }
   return async (req, res, next) => {
+    // #region agent log
+    if (req.method === 'POST' && req.path === '/insights/lsoa') {
+      fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+        body: JSON.stringify({
+          sessionId: '8e1b23',
+          runId: 'run-timeout-3',
+          hypothesisId: 'V3',
+          location: 'server/thirdwebX402.js:neighbourhood-middleware:entry',
+          message: 'Entered thirdweb neighbourhood middleware',
+          data: { facilitator: req.nhsX402Facilitator, path: req.path },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+    }
+    // #endregion
     if (req.nhsX402Facilitator !== 'thirdweb') return next()
     if (req.method !== 'POST') return next()
     if (req.path === '/insights/lsoa') {

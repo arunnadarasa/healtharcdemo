@@ -7,6 +7,7 @@
  *   HES_SAMPLE_DIR — legacy: AE-only root (if AE dir not set)
  *   HES_ROW_LIMIT_PER_FILE — max rows per file (default: unlimited)
  *   HES_CLEAR_FIRST=1 — DELETE existing rows per dataset before ingest
+ *   HES_SKIP_AE=1 — do not ingest AE (use when DB already has AE and you only add OP/APC)
  *
  * Example:
  *   HES_AE_DIR="$HOME/Downloads/artificial_hes_ae_202302_v1_full/artificial_hes_ae_202302_v1_full" \
@@ -72,6 +73,7 @@ const opDir = process.env.HES_OP_DIR?.trim() || ''
 const apcDir = process.env.HES_APC_DIR?.trim() || ''
 
 const clearFirst = process.env.HES_CLEAR_FIRST === '1' || process.env.HES_CLEAR_FIRST === 'true'
+const skipAe = process.env.HES_SKIP_AE === '1' || process.env.HES_SKIP_AE === 'true'
 
 async function main() {
   const db = getHesDb()
@@ -98,13 +100,17 @@ async function main() {
     console.warn('Note: appending to existing DB. Set HES_CLEAR_FIRST=1 for a clean load.')
   }
 
-  const aeCsvs = findCsvs(aeDir, /^artificial_hes_ae.*\.csv$/i)
-  for (const f of aeCsvs) {
-    const r = await ingestAeFileStreaming(f, db, { rowLimit, batchSize })
-    console.log(`AE ${path.basename(f)}: +${r.inserted} rows`)
-    totalAe += r.inserted
+  if (skipAe) {
+    console.warn('HES_SKIP_AE: skipping AE CSV ingest (existing AE rows unchanged).')
+  } else {
+    const aeCsvs = findCsvs(aeDir, /^artificial_hes_ae.*\.csv$/i)
+    for (const f of aeCsvs) {
+      const r = await ingestAeFileStreaming(f, db, { rowLimit, batchSize })
+      console.log(`AE ${path.basename(f)}: +${r.inserted} rows`)
+      totalAe += r.inserted
+    }
+    if (!aeCsvs.length) console.warn(`No AE CSVs under: ${aeDir}`)
   }
-  if (!aeCsvs.length) console.warn(`No AE CSVs under: ${aeDir}`)
 
   if (opDir) {
     const opCsvs = findCsvs(opDir, /^artificial_hes_op.*\.csv$/i)

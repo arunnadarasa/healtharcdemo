@@ -7,11 +7,13 @@ import {
   listNhsTxHistory,
   paidDisplayForNeighbourhoodEndpoint,
   type NhsTxItem,
+  type WalletMode,
 } from './nhsTxHistory'
 import type { NhsNetwork, NhsRole } from './nhsSession'
 import { getStoredWallet } from './nhsSession'
 
 type Session = { role: NhsRole; wallet: string; network: NhsNetwork }
+type TxModeFilter = 'all' | WalletMode
 
 /** Clickable href for the transaction reference: Arc /tx/ page (on-chain) or in-app deep link (audit). */
 function transactionReferenceLink(row: NhsTxItem): { href: string; external: boolean } | null {
@@ -32,11 +34,20 @@ function transactionReferenceLink(row: NhsTxItem): { href: string; external: boo
 
 function TransactionsTable({ session }: { session: Session }) {
   const [rows, setRows] = useState<NhsTxItem[]>(() => listNhsTxHistory())
+  const [txModeFilter, setTxModeFilter] = useState<TxModeFilter>('all')
 
   const wallet = session.wallet || getStoredWallet()
 
   const tab = session.network
-  const filtered = useMemo(() => rows.filter((row) => row.network === tab), [rows, tab])
+  const filtered = useMemo(
+    () =>
+      rows.filter((row) => {
+        if (row.network !== tab) return false
+        if (txModeFilter === 'all') return true
+        return row.walletMode === txModeFilter
+      }),
+    [rows, tab, txModeFilter],
+  )
 
   return (
     <section className="grid">
@@ -48,6 +59,24 @@ function TransactionsTable({ session }: { session: Session }) {
         <div className="actions">
           <button className="secondary" onClick={() => setRows(listNhsTxHistory())}>
             Refresh
+          </button>
+          <button
+            className={txModeFilter === 'all' ? 'primary' : 'secondary'}
+            onClick={() => setTxModeFilter('all')}
+          >
+            All modes
+          </button>
+          <button
+            className={txModeFilter === 'metamask' ? 'primary' : 'secondary'}
+            onClick={() => setTxModeFilter('metamask')}
+          >
+            MetaMask
+          </button>
+          <button
+            className={txModeFilter === 'circle' ? 'primary' : 'secondary'}
+            onClick={() => setTxModeFilter('circle')}
+          >
+            Circle
           </button>
           <button
             className="secondary"
@@ -70,6 +99,7 @@ function TransactionsTable({ session }: { session: Session }) {
               <thead>
                 <tr>
                   <th>Time</th>
+                  <th>Mode</th>
                   <th>Endpoint</th>
                   <th>Type</th>
                   <th>Cost (list)</th>
@@ -93,6 +123,15 @@ function TransactionsTable({ session }: { session: Session }) {
                   return (
                     <tr key={`${row.txHash}-${row.createdAt}`}>
                       <td>{new Date(row.createdAt).toLocaleString()}</td>
+                      <td>
+                        {row.walletMode === 'circle' ? (
+                          <span className="tx-badge tx-badge--chain">Circle</span>
+                        ) : row.walletMode === 'metamask' ? (
+                          <span className="tx-badge tx-badge--audit">MetaMask</span>
+                        ) : (
+                          <span className="tx-muted">—</span>
+                        )}
+                      </td>
                       <td>
                         <code>{row.endpoint}</code>
                       </td>

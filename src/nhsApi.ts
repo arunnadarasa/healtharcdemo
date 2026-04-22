@@ -1,6 +1,6 @@
-import { nhsX402Fetch } from './nhsArcPaidFetch'
+import { nhsX402Fetch, resolveNhsFacilitatorForWallet } from './nhsArcPaidFetch'
 import { getAuthHeaders, type NhsNetwork, type NhsRole } from './nhsSession'
-import { addNhsTxHistory, paidDisplayForNeighbourhoodEndpoint } from './nhsTxHistory'
+import { addNhsTxHistory, paidDisplayForNeighbourhoodEndpoint, type WalletMode } from './nhsTxHistory'
 import { getX402FacilitatorForPath, type X402FacilitatorId } from './x402FacilitatorPreference'
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; status: number }
@@ -79,6 +79,16 @@ type ApiOpts = {
   network: NhsNetwork
 }
 
+function currentWalletMode(): WalletMode | undefined {
+  try {
+    const raw = localStorage.getItem('nhs_wallet_mode_v1')
+    if (raw === 'metamask' || raw === 'circle') return raw
+  } catch {
+    // ignore storage access errors
+  }
+  return undefined
+}
+
 /**
  * Full EVM tx hash: `0x` + 64 hex, or bare 64 hex (some facilitators omit the prefix).
  * Does not match 40-hex addresses.
@@ -97,23 +107,66 @@ function toExplorerUrl(_network: NhsNetwork, txHash: string): string {
 function auditRefFromPayload(payload: unknown): string {
   if (!payload || typeof payload !== 'object') return ''
   const o = payload as Record<string, unknown>
-  for (const k of ['id', 'patientId', 'referralId', 'alertId', 'planId']) {
+  for (const k of ['receiptRef', 'id', 'patientId', 'referralId', 'alertId', 'planId']) {
     const v = o[k]
     if (typeof v === 'string' && v.trim()) return v.trim()
   }
   return ''
 }
 
-function txFromResponse(payload: unknown, res: Response): string | null {
-  if (payload && typeof payload === 'object') {
-    const o = payload as Record<string, unknown>
-    if (typeof o.receiptRef === 'string' && o.receiptRef.trim()) {
-      const fromReceipt = extractTxHash(o.receiptRef)
-      if (fromReceipt) return fromReceipt
+function parseJsonLoose(value: string): unknown {
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return null
+  }
+}
+
+function txFromObject(obj: unknown): string | null {
+  if (!obj || typeof obj !== 'object') return null
+  const o = obj as Record<string, unknown>
+  const directKeys = [
+    'txHash',
+    'transactionHash',
+    'hash',
+    'paymentTxHash',
+    'paymentHash',
+    'receiptRef',
+    'reference',
+  ]
+  for (const key of directKeys) {
+    const v = o[key]
+    if (typeof v === 'string') {
+      const tx = extractTxHash(v)
+      if (tx) return tx
     }
   }
-  const paymentReceipt = res.headers.get('payment-receipt') || ''
-  const payment = res.headers.get('payment') || ''
+  // Common nested shapes from facilitator/provider responses.
+  for (const key of ['receipt', 'payment', 'result', 'data', 'transaction']) {
+    const nested = txFromObject(o[key])
+    if (nested) return nested
+  }
+  return null
+}
+
+function txFromResponse(payload: unknown, res: Response): string | null {
+  const fromPayload = txFromObject(payload)
+  if (fromPayload) return fromPayload
+
+  const headerCandidates = [
+    'payment-receipt',
+    'payment',
+    'payment-response',
+    'x-payment',
+    'x-payment-receipt',
+    'x-payment-response',
+    'transaction-hash',
+    'x-transaction-hash',
+  ]
+  const headerValues = headerCandidates
+    .map((k) => res.headers.get(k) || '')
+    .filter((v) => typeof v === 'string' && v.trim().length > 0)
+
   const payloadString = (() => {
     try {
       return JSON.stringify(payload ?? {})
@@ -121,24 +174,16 @@ function txFromResponse(payload: unknown, res: Response): string | null {
       return ''
     }
   })()
-  const merged = [paymentReceipt, payment, payloadString].filter(Boolean).join(' ')
+  const merged = [...headerValues, payloadString].join(' ')
 
   const fromMerged = extractTxHash(merged)
   if (fromMerged) return fromMerged
 
-  // Fallback: parse serialized receipt payloads and look for a reference field.
-  for (const candidate of [paymentReceipt, payment]) {
-    if (!candidate) continue
-    try {
-      const parsed = JSON.parse(candidate) as Record<string, unknown>
-      const reference = parsed.reference
-      if (typeof reference === 'string') {
-        const fromReference = extractTxHash(reference)
-        if (fromReference) return fromReference
-      }
-    } catch {
-      // Ignore non-JSON header values.
-    }
+  // Fallback: parse structured header payloads and inspect nested objects.
+  for (const candidate of headerValues) {
+    const parsed = parseJsonLoose(candidate)
+    const fromHeaderObject = txFromObject(parsed)
+    if (fromHeaderObject) return fromHeaderObject
   }
   return null
 }
@@ -150,7 +195,22 @@ export async function apiPost<T>(
   body: unknown,
   opts: ApiOpts,
 ): Promise<ApiResponse<T>> {
-  const facilitator = getX402FacilitatorForPath(path)
+  const facilitator = resolveNhsFacilitatorForWallet(wallet, getX402FacilitatorForPath(path))
+  // #region agent log
+  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+    body: JSON.stringify({
+      sessionId: '8e1b23',
+      runId: 'run-timeout-1',
+      hypothesisId: 'T1_T2',
+      location: 'src/nhsApi.ts:apiPost:start',
+      message: 'apiPost started for paid route',
+      data: { path, facilitator, network: opts.network },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {})
+  // #endregion
   const headers = new Headers(getAuthHeaders(role, wallet))
   headers.set('X-X402-Facilitator', facilitator)
   const reqInit: RequestInit = {
@@ -163,14 +223,46 @@ export async function apiPost<T>(
     res = await nhsX402Fetch(path, reqInit, { wallet, network: opts.network, facilitator })
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Network error.'
+    // #region agent log
+    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+      body: JSON.stringify({
+        sessionId: '8e1b23',
+        runId: 'run-timeout-1',
+        hypothesisId: 'T1_T3',
+        location: 'src/nhsApi.ts:apiPost:fetch-error',
+        message: 'nhsX402Fetch threw in apiPost',
+        data: { path, facilitator, error: msg },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
     return { ok: false, error: msg, status: 0 }
   }
+  // #region agent log
+  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+    body: JSON.stringify({
+      sessionId: '8e1b23',
+      runId: 'run-timeout-1',
+      hypothesisId: 'T2',
+      location: 'src/nhsApi.ts:apiPost:response',
+      message: 'apiPost received response object',
+      data: { path, status: res.status, ok: res.ok },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {})
+  // #endregion
   const payload = await parseJsonSafe(res)
   if (!res.ok)
     return { ok: false, error: errorFromResponse(res, payload, { facilitator }), status: res.status }
   const txHash = txFromResponse(payload, res)
   const paidDisplay = paidDisplayForNeighbourhoodEndpoint(path)
   const paidFields = paidDisplay ? { paidDisplay } : {}
+  const walletMode = currentWalletMode()
+  const walletModeFields = walletMode ? { walletMode } : {}
   if (txHash) {
     addNhsTxHistory({
       txHash,
@@ -179,6 +271,7 @@ export async function apiPost<T>(
       createdAt: new Date().toISOString(),
       kind: 'chain',
       ...paidFields,
+      ...walletModeFields,
     })
   } else {
     const auditRef = auditRefFromPayload(payload)
@@ -190,6 +283,7 @@ export async function apiPost<T>(
       kind: 'audit',
       ...(auditRef ? { auditRef } : {}),
       ...paidFields,
+      ...walletModeFields,
     })
   }
   return {

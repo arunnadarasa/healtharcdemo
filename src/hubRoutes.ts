@@ -19,6 +19,16 @@ export const HUB_ROUTE_GROUPS: HubRouteGroup[] = [
         title: 'HES at scale',
         hint: 'Full AE/OP/APC SQLite + FTS + x402 + Featherless',
       },
+      {
+        href: '/nhs/snomed-intelligence',
+        title: 'SNOMED intelligence',
+        hint: 'Snowstorm + SNOMED CT lookup + paid USDC terminology calls',
+      },
+      {
+        href: '/nhs/dmd-intelligence',
+        title: 'dm+d intelligence',
+        hint: 'NHSBSA dm+d lookup + paid USDC enrichment and summaries',
+      },
     ],
   },
 ]

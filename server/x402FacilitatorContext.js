@@ -36,6 +36,23 @@ export function resolveNhsX402Facilitator(req, res, next) {
     v = env === 'thirdweb' ? 'thirdweb' : 'circle'
   }
   req.nhsX402Facilitator = v
+  // #region agent log
+  if (isPaidNeighbourhoodOrOpenehrPost(req)) {
+    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+      body: JSON.stringify({
+        sessionId: '8e1b23',
+        runId: 'run-timeout-3',
+        hypothesisId: 'V3',
+        location: 'server/x402FacilitatorContext.js:resolveNhsX402Facilitator',
+        message: 'Resolved facilitator for paid route',
+        data: { path, facilitator: v },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+  }
+  // #endregion
 
   if (isPaidNeighbourhoodOrOpenehrPost(req) && v === 'thirdweb' && !process.env.THIRDWEB_SECRET_KEY?.trim()) {
     return res.status(503).json({

@@ -30,8 +30,15 @@ export default function NhsHubApp() {
               <a className="button-like secondary" href="/nhs/hes-scale" style={{ marginLeft: '0.5rem' }}>
                 HES at scale (full data) →
               </a>
+              <a className="button-like secondary" href="/nhs/snomed-intelligence" style={{ marginLeft: '0.5rem' }}>
+                SNOMED intelligence →
+              </a>
+              <a className="button-like secondary" href="/nhs/dmd-intelligence" style={{ marginLeft: '0.5rem' }}>
+                dm+d intelligence →
+              </a>
               <p className="note hub-cta__note">Paid actions need a connected wallet and USDC on Arc testnet.</p>
             </div>
+
           </article>
         </section>
       )}

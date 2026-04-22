@@ -10,6 +10,7 @@ import {
   NEIGHBOURHOOD_X402_PRICE_DISPLAY,
   paidDisplayForNeighbourhoodEndpoint,
   type NhsTxItem,
+  type WalletMode,
 } from './nhsTxHistory'
 import {
   getX402FacilitatorPreference,
@@ -66,6 +67,7 @@ LIMIT 10`
 type NhsSession = { role: NhsRole; wallet: string; network: NhsNetwork }
 
 const TX_LOG_PAGE_SIZE = 10
+type TxModeFilter = 'all' | WalletMode
 
 function NeighbourhoodInsightsGrid({
   session,
@@ -86,9 +88,13 @@ function NeighbourhoodInsightsGrid({
   const [aql, setAql] = useState(DEFAULT_AQL)
   const [out, setOut] = useState<string>('')
   const [busy, setBusy] = useState(false)
+  const [activeAction, setActiveAction] = useState<'' | 'aql' | 'lsoa' | 'summary'>('')
+  const [requestStartedAt, setRequestStartedAt] = useState<number | null>(null)
+  const [elapsedSec, setElapsedSec] = useState(0)
   const [txRows, setTxRows] = useState<NhsTxItem[]>(() =>
     listNhsTxHistoryNeighbourhoodInsights(session.network),
   )
+  const [txModeFilter, setTxModeFilter] = useState<TxModeFilter>('all')
   const [txPage, setTxPage] = useState(1)
 
   const refreshTxLog = useCallback(() => {
@@ -96,25 +102,24 @@ function NeighbourhoodInsightsGrid({
     setTxPage(1)
   }, [session.network])
 
-  useEffect(() => {
-    refreshTxLog()
-  }, [refreshTxLog])
-
-  const txTotalPages = txRows.length === 0 ? 0 : Math.ceil(txRows.length / TX_LOG_PAGE_SIZE)
+  const filteredTxRows = txRows.filter((row) => {
+    if (txModeFilter === 'all') return true
+    return row.walletMode === txModeFilter
+  })
+  const txTotalPages = filteredTxRows.length === 0 ? 0 : Math.ceil(filteredTxRows.length / TX_LOG_PAGE_SIZE)
   const txPageSafe = txTotalPages === 0 ? 1 : Math.min(txPage, txTotalPages)
   const txPageStart = (txPageSafe - 1) * TX_LOG_PAGE_SIZE
-  const txPageRows = txRows.slice(txPageStart, txPageStart + TX_LOG_PAGE_SIZE)
-
-  useEffect(() => {
-    if (txRows.length === 0) {
-      setTxPage(1)
-      return
-    }
-    const max = Math.ceil(txRows.length / TX_LOG_PAGE_SIZE)
-    setTxPage((p) => Math.min(p, max))
-  }, [txRows.length])
+  const txPageRows = filteredTxRows.slice(txPageStart, txPageStart + TX_LOG_PAGE_SIZE)
 
   const wallet = session.wallet
+
+  useEffect(() => {
+    if (!busy || requestStartedAt == null) return
+    const id = setInterval(() => {
+      setElapsedSec(Math.max(0, Math.floor((Date.now() - requestStartedAt) / 1000)))
+    }, 250)
+    return () => clearInterval(id)
+  }, [busy, requestStartedAt])
 
   return (
     <section className="grid">
@@ -262,6 +267,9 @@ function NeighbourhoodInsightsGrid({
             type="button"
             disabled={!session.wallet || busy}
             onClick={async () => {
+              setActiveAction('aql')
+              setRequestStartedAt(Date.now())
+              setElapsedSec(0)
               setBusy(true)
               setOut('')
               const res = await apiPost<unknown>(
@@ -274,6 +282,9 @@ function NeighbourhoodInsightsGrid({
               setOut(res.ok ? JSON.stringify(res.data, null, 2) : res.error)
               if (res.ok) refreshTxLog()
               setBusy(false)
+              setActiveAction('')
+              setRequestStartedAt(null)
+              setElapsedSec(0)
             }}
           >
             Run paid AQL
@@ -312,6 +323,9 @@ function NeighbourhoodInsightsGrid({
             type="button"
             disabled={!session.wallet || busy}
             onClick={async () => {
+              setActiveAction('lsoa')
+              setRequestStartedAt(Date.now())
+              setElapsedSec(0)
               setBusy(true)
               setOut('')
               const res = await apiPost<unknown>(
@@ -324,10 +338,18 @@ function NeighbourhoodInsightsGrid({
               setOut(res.ok ? JSON.stringify(res.data, null, 2) : res.error)
               if (res.ok) refreshTxLog()
               setBusy(false)
+              setActiveAction('')
+              setRequestStartedAt(null)
+              setElapsedSec(0)
             }}
           >
             Run paid aggregate
           </button>
+          {busy && activeAction === 'lsoa' ? (
+            <p className="note" style={{ margin: 0 }}>
+              Running LSOA aggregate… {elapsedSec}s elapsed
+            </p>
+          ) : null}
         </div>
       </article>
 
@@ -343,6 +365,9 @@ function NeighbourhoodInsightsGrid({
             type="button"
             disabled={!session.wallet || busy}
             onClick={async () => {
+              setActiveAction('summary')
+              setRequestStartedAt(Date.now())
+              setElapsedSec(0)
               setBusy(true)
               setOut('')
               const res = await apiPost<unknown>(
@@ -355,10 +380,18 @@ function NeighbourhoodInsightsGrid({
               setOut(res.ok ? JSON.stringify(res.data, null, 2) : res.error)
               if (res.ok) refreshTxLog()
               setBusy(false)
+              setActiveAction('')
+              setRequestStartedAt(null)
+              setElapsedSec(0)
             }}
           >
             Run paid summary
           </button>
+          {busy && activeAction === 'summary' ? (
+            <p className="note" style={{ margin: 0 }}>
+              Running summary… {elapsedSec}s elapsed
+            </p>
+          ) : null}
         </div>
       </article>
 
@@ -400,12 +433,45 @@ function NeighbourhoodInsightsGrid({
           <button type="button" className="secondary" onClick={() => refreshTxLog()}>
             Refresh log
           </button>
-          {txRows.length > 0 ? (
+          <div className="actions" role="group" aria-label="Filter by wallet mode">
+            <button
+              type="button"
+              className={txModeFilter === 'all' ? 'primary' : 'secondary'}
+              onClick={() => {
+                setTxModeFilter('all')
+                setTxPage(1)
+              }}
+            >
+              All modes
+            </button>
+            <button
+              type="button"
+              className={txModeFilter === 'metamask' ? 'primary' : 'secondary'}
+              onClick={() => {
+                setTxModeFilter('metamask')
+                setTxPage(1)
+              }}
+            >
+              MetaMask
+            </button>
+            <button
+              type="button"
+              className={txModeFilter === 'circle' ? 'primary' : 'secondary'}
+              onClick={() => {
+                setTxModeFilter('circle')
+                setTxPage(1)
+              }}
+            >
+              Circle
+            </button>
+          </div>
+          {filteredTxRows.length > 0 ? (
             <>
               <span className="note" style={{ margin: 0 }}>
                 Page <strong>{txPageSafe}</strong> of <strong>{txTotalPages}</strong>
                 {' · '}
-                {txRows.length} total · Showing {txPageRows.length} of {txRows.length} (newest first)
+                {filteredTxRows.length} shown · {txRows.length} total · Showing {txPageRows.length} of{' '}
+                {filteredTxRows.length} (newest first)
               </span>
               <button
                 type="button"
@@ -426,14 +492,17 @@ function NeighbourhoodInsightsGrid({
             </>
           ) : null}
         </div>
-        {txRows.length === 0 ? (
-          <p className="note">No paid calls from this page yet for this network.</p>
+        {filteredTxRows.length === 0 ? (
+          <p className="note">
+            No paid calls for this filter yet. Older rows created before this update may only appear under All modes.
+          </p>
         ) : (
           <div className="tx-table-wrap">
             <table className="tx-table">
               <thead>
                 <tr>
                   <th>Time</th>
+                  <th>Mode</th>
                   <th>Endpoint</th>
                   <th>Type</th>
                   <th>Cost (list)</th>
@@ -457,6 +526,15 @@ function NeighbourhoodInsightsGrid({
                   return (
                     <tr key={`${row.txHash}-${row.createdAt}-${row.endpoint}`}>
                       <td>{new Date(row.createdAt).toLocaleString()}</td>
+                      <td>
+                        {row.walletMode === 'circle' ? (
+                          <span className="tx-badge tx-badge--chain">Circle</span>
+                        ) : row.walletMode === 'metamask' ? (
+                          <span className="tx-badge tx-badge--audit">MetaMask</span>
+                        ) : (
+                          <span className="tx-muted">—</span>
+                        )}
+                      </td>
                       <td>
                         <code>{row.endpoint}</code>
                       </td>
@@ -510,17 +588,51 @@ export default function NhsNeighbourhoodInsightsApp() {
 
   useEffect(() => {
     void (async () => {
-      const res = await fetch('/api/neighbourhood/insights/health')
-      const j = (await res.json()) as HealthJson
-      setHealth(JSON.stringify(j, null, 2))
+      try {
+        const signal =
+          typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+            ? AbortSignal.timeout(5000)
+            : undefined
+        const res = await fetch('/api/neighbourhood/insights/health', signal ? { signal } : undefined)
+        const text = await res.text()
+        if (!res.ok) {
+          throw new Error(text ? `${res.status}: ${text.slice(0, 240)}` : `HTTP ${res.status}`)
+        }
+        const j = JSON.parse(text) as HealthJson
+        setHealth(JSON.stringify(j, null, 2))
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        setHealth(
+          JSON.stringify(
+            {
+              ok: false,
+              error: `Service health unavailable: ${msg}`,
+              hint: 'Ensure API is running on port 8787, then refresh.',
+              time: new Date().toISOString(),
+            },
+            null,
+            2,
+          ),
+        )
+      }
     })()
   }, [])
 
   useEffect(() => {
     void (async () => {
-      const res = await fetch('/api/neighbourhood/insights/context')
-      const j = (await res.json()) as IntegrationContext
-      if (j?.hackathon) setIntegration(j)
+      try {
+        const signal =
+          typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+            ? AbortSignal.timeout(5000)
+            : undefined
+        const res = await fetch('/api/neighbourhood/insights/context', signal ? { signal } : undefined)
+        const text = await res.text()
+        if (!res.ok) return
+        const j = JSON.parse(text) as IntegrationContext
+        if (j?.hackathon) setIntegration(j)
+      } catch {
+        // Keep page usable even if context is temporarily unavailable during startup.
+      }
     })()
   }, [])
 
@@ -533,6 +645,7 @@ export default function NhsNeighbourhoodInsightsApp() {
     >
       {(session) => (
         <NeighbourhoodInsightsGrid
+          key={session.network}
           session={session}
           payLabel={payLabel}
           health={health}
