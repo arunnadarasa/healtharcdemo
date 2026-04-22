@@ -76,6 +76,13 @@ Set **`SNOWSTORM_URL=http://localhost:8081`** and load a SNOMED CT RF2 release i
 
 If the UI shows **`Cannot POST /api/...`**, restart the backend on **8787**. Quick check: **`GET http://localhost:8787/openapi.json`**.
 
+### Runtime reliability notes (SNOMED + dm+d)
+
+- **SNOMED URI:** Keep FHIR lookup `system` as **`http://snomed.info/sct`**. If a concept returns not-found, check local Snowstorm content/version state before changing URI logic.
+- **Snowstorm imports:** UK RF2 loads may run for extended periods and are memory-sensitive; allocate sufficient heap to Elasticsearch/Snowstorm and monitor import job state to completion.
+- **dm+d strict matching:** Some upstream `wardle/dmd` queries are case/exact-match sensitive. This repo now tries multiple query variants and returns attempted/matched query metadata in dm+d responses.
+- **Payment troubleshooting:** Distinguish wallet USDC from Gateway available balance, especially in Circle mode where Gateway deposits are required for paid x402 flows.
+
 For hackathon capture steps, see **[Hackathon criteria alignment](#hackathon-criteria-alignment)**. For codegen velocity: [Circle MCP](https://developers.circle.com/ai/mcp) + [`llms-full.txt`](https://developers.circle.com/llms-full.txt).
 
 ---

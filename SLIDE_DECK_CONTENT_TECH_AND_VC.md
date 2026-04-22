@@ -118,7 +118,17 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 
 ---
 
-### Slide 12 - Technical Close
+### Slide 12 - Runtime Debug Learnings
+**Title:** Runtime evidence changed our implementation decisions  
+**Bullets:**
+- Verified SNOMED URI usage was correct (`http://snomed.info/sct`), while failures came from content/version state
+- Added dm+d fallback matching (case/query variants) after observing strict upstream exact-match behavior
+- Separated infra health checks from terminology-content correctness checks
+- Captured operational evidence through endpoint-level diagnostics and response metadata
+
+---
+
+### Slide 13 - Technical Close
 **Title:** What teams can do next  
 **Bullets:**
 - Fork and customize route surfaces for your datasets
@@ -227,7 +237,17 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 
 ---
 
-### Slide 11 - What Success Looks Like
+### Slide 11 - Execution Resilience
+**Title:** We derisk by operating in the open  
+**Bullets:**
+- Converted real runtime issues into reusable reliability patterns
+- Added transparent diagnostics for terminology and payment flows
+- Reduced demo and pilot risk by proving recovery paths, not only happy paths
+- Demonstrated ability to ship fixes quickly from evidence, not assumptions
+
+---
+
+### Slide 12 - What Success Looks Like
 **Title:** Target outcomes  
 **Bullets:**
 - Become the default architecture for pay-per-request HealthTech APIs
@@ -237,7 +257,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 
 ---
 
-### Slide 12 - VC Close
+### Slide 13 - VC Close
 **Title:** Investment Narrative  
 **Bullets:**
 - Large market, broken pricing model, clear infrastructure gap

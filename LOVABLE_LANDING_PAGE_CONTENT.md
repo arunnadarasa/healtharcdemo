@@ -126,6 +126,38 @@ Clinical Arc is implemented as a working React + Node/Express stack with live ro
 
 ---
 
+## Live Reliability Proof
+
+**Section title:**  
+Built and tested in real runtime conditions.
+
+**Body copy:**  
+Clinical Arc is validated with live service checks, not only static screenshots. We actively monitor Snowstorm, dm+d, and x402 paths in the demo environment and treat infrastructure and content-state issues as first-class operational concerns.
+
+**Proof bullets:**
+- SNOMED health checks verify service reachability before terminology calls
+- dm+d integration includes fallback query variants to reduce strict-match failures
+- API responses expose attempted and matched queries for transparent troubleshooting
+- Operational runbooks separate “service up” from “correct terminology edition loaded”
+
+---
+
+## Runtime Learnings
+
+**Section title:**  
+What we learned by running this stack end-to-end.
+
+**Body copy:**  
+In practice, terminology and payment systems fail in nuanced ways. We documented and productized those lessons so teams can diagnose faster and ship with more confidence.
+
+**Learning bullets:**
+- `http://snomed.info/sct` is the correct SNOMED FHIR system URI; most 404s were content-load mismatches, not URI mistakes
+- Snowstorm UK imports can take significant time and require enough Elasticsearch/Snowstorm memory to complete reliably
+- dm+d upstream search can be strict on casing and exact terms; backend fallback logic improves user-facing reliability
+- Distinguishing wallet balance from Gateway balance avoids false payment debugging trails
+
+---
+
 ## CTA Band
 
 **Headline:**  
