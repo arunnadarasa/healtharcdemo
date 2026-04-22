@@ -100,6 +100,12 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 11. **Vite vs API startup race**  
     If the UI loads before **8787** is up, `/api/*` can error until refresh.
 
+12. **dm+d name search is strict on upstream (`wardle/dmd`)**  
+    `GET /dmd/v1/search?s=...` can return **`Not Found`** for lowercase or non-exact forms even when a canonical term exists (e.g. `amlodipine` vs `Amlodipine`). In this repo, `/api/dmd/search` now performs fallback query variants (lower/upper/title-case) and returns `attemptedQueries` + `matchedQuery` to make UX and debugging clearer.
+
+13. **Snowstorm UK import pitfalls (content mismatch root cause)**  
+    SNOMED lookup `404 not-found` with diagnostics `Code '<id>' not found for system 'http://snomed.info/sct'` is often a **loaded-content issue**, not a wrong system URI. We observed failed UK RF2 imports on constrained Docker memory and branch-lock/partial-commit states. Practical recovery: raise Elasticsearch/Snowstorm heap, clear stuck partial commits, and re-import UK release before evaluating lookup behavior.
+
 ---
 
 ## 4. Best practices (checklist)
@@ -166,4 +172,4 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 
 ---
 
-*Last updated: Added Arc Testnet + Circle batching incident warning and Thirdweb workaround guidance; includes prior `@x402` payload-shape and tx-log learnings — Clinical Arc, Arc Testnet, x402.*
+*Last updated: Added dm+d search strictness fallback learnings and Snowstorm UK import operational pitfalls; includes Arc Testnet + Circle batching incident warning and prior `@x402` payload-shape / tx-log learnings — Clinical Arc, Arc Testnet, x402.*

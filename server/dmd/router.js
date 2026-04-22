@@ -27,15 +27,57 @@ async function fetchJson(url, init = {}, timeoutMs = 12000) {
   }
 }
 
+function queryVariants(raw) {
+  const q = typeof raw === 'string' ? raw.trim() : ''
+  if (!q) return []
+  const seen = new Set()
+  const out = []
+  const add = (v) => {
+    const s = String(v || '').trim()
+    if (!s) return
+    if (seen.has(s)) return
+    seen.add(s)
+    out.push(s)
+  }
+  add(q)
+  add(q.toLowerCase())
+  add(q.toUpperCase())
+  add(q.charAt(0).toUpperCase() + q.slice(1).toLowerCase())
+  add(
+    q
+      .split(/\s+/)
+      .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+      .join(' '),
+  )
+  return out
+}
+
 async function searchDmd(baseUrl, q, code) {
   const cleanCode = typeof code === 'string' ? code.trim() : ''
   if (cleanCode) {
     const productUrl = `${baseUrl.replace(/\/$/, '')}/dmd/v1/product/${encodeURIComponent(cleanCode)}`
     return fetchJson(productUrl, { method: 'GET' })
   }
-  const cleanQ = typeof q === 'string' ? q.trim() : ''
-  const searchUrl = `${baseUrl.replace(/\/$/, '')}/dmd/v1/search?s=${encodeURIComponent(cleanQ)}`
-  return fetchJson(searchUrl, { method: 'GET' })
+  const attempts = queryVariants(q)
+  if (attempts.length === 0) {
+    return {
+      ok: false,
+      status: 400,
+      data: { error: 'Provide either `code` or a non-empty `q` string.' },
+      attemptedQueries: [],
+    }
+  }
+  /** @type {{ ok: boolean, status: number, data: unknown } | null} */
+  let last = null
+  for (const term of attempts) {
+    const searchUrl = `${baseUrl.replace(/\/$/, '')}/dmd/v1/search?s=${encodeURIComponent(term)}`
+    const res = await fetchJson(searchUrl, { method: 'GET' })
+    if (res.ok) {
+      return { ...res, attemptedQueries: attempts, matchedQuery: term }
+    }
+    last = res
+  }
+  return { ...(last || { ok: false, status: 502, data: { error: 'No upstream response' } }), attemptedQueries: attempts }
 }
 
 /**
@@ -87,6 +129,8 @@ export function createDmdRouter(deps) {
         query: typeof req.query.q === 'string' ? req.query.q : '',
         code: typeof req.query.code === 'string' ? req.query.code : '',
         data: result.data,
+        attemptedQueries: result.attemptedQueries ?? [],
+        matchedQuery: result.matchedQuery ?? null,
       })
     } catch (e) {
       return res.status(502).json({
@@ -120,6 +164,8 @@ export function createDmdRouter(deps) {
             query: typeof req.body?.q === 'string' ? req.body.q : '',
             code: typeof req.body?.code === 'string' ? req.body.code : '',
             result: result.data,
+            attemptedQueries: result.attemptedQueries ?? [],
+            matchedQuery: result.matchedQuery ?? null,
           })
         } catch (e) {
           return res.status(502).json({
