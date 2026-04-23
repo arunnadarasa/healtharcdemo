@@ -1,13 +1,13 @@
 /**
- * Per-request x402 facilitator for neighbourhood + OpenEHR BFF routes.
+ * Per-request x402 facilitator for neighbourhood + OpenEHR + dm+d routes.
  * Client sends `X-X402-Facilitator: thirdweb` | `circle`; falls back to `X402_FACILITATOR` env (default circle).
  * NHS `/api/nhs/*` routes ignore this (Circle Gateway only).
  */
 
-function isPaidNeighbourhoodOrOpenehrPost(req) {
+function isPaidRoutedPost(req) {
   if (req.method !== 'POST') return false
   const path = req.path || ''
-  if (!path.startsWith('/api/neighbourhood') && !path.startsWith('/api/openehr')) return false
+  if (!path.startsWith('/api/neighbourhood') && !path.startsWith('/api/openehr') && !path.startsWith('/api/dmd')) return false
   if (
     path.startsWith('/api/neighbourhood') &&
     (path.includes('/insights/lsoa') ||
@@ -19,6 +19,7 @@ function isPaidNeighbourhoodOrOpenehrPost(req) {
   )
     return true
   if (path.startsWith('/api/openehr') && path.endsWith('/query/aql')) return true
+  if (path.startsWith('/api/dmd') && (path.endsWith('/lookup') || path.endsWith('/summary'))) return true
   return false
 }
 
@@ -27,7 +28,7 @@ function isPaidNeighbourhoodOrOpenehrPost(req) {
  */
 export function resolveNhsX402Facilitator(req, res, next) {
   const path = req.path || ''
-  if (!path.startsWith('/api/neighbourhood') && !path.startsWith('/api/openehr')) {
+  if (!path.startsWith('/api/neighbourhood') && !path.startsWith('/api/openehr') && !path.startsWith('/api/dmd')) {
     return next()
   }
 
@@ -39,7 +40,7 @@ export function resolveNhsX402Facilitator(req, res, next) {
   }
   req.nhsX402Facilitator = v
 
-  if (isPaidNeighbourhoodOrOpenehrPost(req) && v === 'thirdweb' && !process.env.THIRDWEB_SECRET_KEY?.trim()) {
+  if (isPaidRoutedPost(req) && v === 'thirdweb' && !process.env.THIRDWEB_SECRET_KEY?.trim()) {
     return res.status(503).json({
       error:
         'x402 facilitator "thirdweb" was requested (X-X402-Facilitator) but THIRDWEB_SECRET_KEY is not set on the server. Choose Circle in the UI, set the secret, or use X402_FACILITATOR=circle.',

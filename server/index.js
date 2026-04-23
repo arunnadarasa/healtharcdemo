@@ -32,6 +32,7 @@ import { createNeighbourhoodRouter } from './neighbourhood/router.js'
 import { createOpenehrBffRouter } from './openehr/bffRouter.js'
 import {
   createNeighbourhoodThirdwebPaymentMiddleware,
+  createDmdThirdwebPaymentMiddleware,
   createOpenehrThirdwebPaymentMiddleware,
   isThirdwebSettlementConfigured,
 } from './thirdwebX402.js'
@@ -429,6 +430,7 @@ app.use(resolveNhsX402Facilitator)
 if (nhsPaymentGateEnabled && thirdwebSettlementReady) {
   app.use('/api/neighbourhood', createNeighbourhoodThirdwebPaymentMiddleware())
   app.use('/api/openehr', createOpenehrThirdwebPaymentMiddleware())
+  app.use('/api/dmd', createDmdThirdwebPaymentMiddleware())
 }
 
 app.use(

@@ -154,3 +154,9 @@ Do not connect real clinical systems or ingest real patient records without appr
 
 9. **Precision controls improve controllability for demo prompts.**  
    Adding `content focus`, `audience`, and `context rows` fields produced more targeted synthesis output and made behavior easier to explain to judges and reviewers.
+
+10. **Facilitator wiring must cover every paid route family.**  
+   dm+d paid routes initially failed with `invalid_signature` in MetaMask + Thirdweb mode because the Thirdweb settlement middleware path did not include `/api/dmd/*`. Explicitly wiring dm+d paid endpoints into facilitator resolution + settlement middleware removed the mismatch.
+
+11. **Place paid outputs beside paid actions for better operator UX.**  
+   Users expect paid lookup results directly under the paid lookup card; splitting free and paid output panes reduces scrolling and avoids confusion about which action produced which response.

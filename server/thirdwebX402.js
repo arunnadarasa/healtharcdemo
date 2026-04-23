@@ -198,3 +198,26 @@ export function createOpenehrThirdwebPaymentMiddleware() {
     })
   }
 }
+
+export function createDmdThirdwebPaymentMiddleware() {
+  if (!isThirdwebSettlementConfigured()) {
+    return (_req, _res, next) => next()
+  }
+  return async (req, res, next) => {
+    if (req.nhsX402Facilitator !== 'thirdweb') return next()
+    if (req.method !== 'POST') return next()
+    if (req.path === '/lookup') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'dm+d enriched lookup (demo)',
+      })
+    }
+    if (req.path === '/summary') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'dm+d prescribing summary (demo)',
+      })
+    }
+    return next()
+  }
+}

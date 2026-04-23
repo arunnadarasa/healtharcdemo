@@ -36,7 +36,8 @@ function DmdIntelligenceGrid({
 
   const [query, setQuery] = useState('paracetamol')
   const [nhsCode, setNhsCode] = useState('')
-  const [lookupOut, setLookupOut] = useState('No lookup result yet.')
+  const [freeOut, setFreeOut] = useState('No free query result yet.')
+  const [lookupOut, setLookupOut] = useState('No paid lookup result yet.')
   const [summaryOut, setSummaryOut] = useState('No paid summary result yet.')
 
   const [txRows, setTxRows] = useState<NhsTxItem[]>([])
@@ -135,9 +136,9 @@ function DmdIntelligenceGrid({
       if (nhsCode.trim()) url.searchParams.set('code', nhsCode.trim())
       const res = await fetch(url.toString())
       const payload = await res.json().catch(() => ({}))
-      setLookupOut(JSON.stringify(payload, null, 2))
+      setFreeOut(JSON.stringify(payload, null, 2))
     } catch (e) {
-      setLookupOut(e instanceof Error ? e.message : String(e))
+      setFreeOut(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -196,13 +197,13 @@ function DmdIntelligenceGrid({
             onClick={async () => {
               const res = await fetch('/api/dmd/health')
               const payload = await res.json().catch(() => ({}))
-              setLookupOut(JSON.stringify(payload, null, 2))
+              setFreeOut(JSON.stringify(payload, null, 2))
             }}
           >
             GET /api/dmd/health
           </button>
         </div>
-        <pre className="log">{lookupOut}</pre>
+        <pre className="log">{freeOut}</pre>
       </article>
 
       <article className="card">
@@ -221,6 +222,7 @@ function DmdIntelligenceGrid({
             </p>
           ) : null}
         </div>
+        <pre className="log">{lookupOut}</pre>
       </article>
 
       <article className="card">
