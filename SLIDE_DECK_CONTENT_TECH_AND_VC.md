@@ -53,6 +53,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 **Bullets:**
 - Neighbourhood health insights (aggregates + paid summaries)
 - HES at scale (FTS search + cross-dataset summary)
+- NHS UK dataset lane (CSV-grounded retrieval + synthesis with precision controls)
 - SNOMED intelligence (lookup, indexed search, summary)
 - dm+d intelligence (free lookup + paid enrichment and paid summary)
 
@@ -105,6 +106,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - Endpoint-level paid call visibility
 - Explorer links for chain evidence when available
 - Clear distinction between wallet balance and Gateway balance
+- Clear separation of free vs paid output panes for faster operator UX
 
 ---
 
@@ -123,6 +125,8 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 **Bullets:**
 - Verified SNOMED URI usage was correct (`http://snomed.info/sct`), while failures came from content/version state
 - Added dm+d fallback matching (case/query variants) after observing strict upstream exact-match behavior
+- Fixed dm+d `invalid_signature` in MetaMask + Thirdweb by wiring `/api/dmd/*` into facilitator resolution + settlement middleware
+- Removed stale inherited input fields (`LSOA`) when moving NHS UK synthesis to CSV-grounded lane
 - Separated infra health checks from terminology-content correctness checks
 - Captured operational evidence through endpoint-level diagnostics and response metadata
 
@@ -172,7 +176,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 **Title:** Clinical Arc in one sentence  
 **Bullets:**
 - A working platform for healthcare intelligence workflows with built-in micropayment gating
-- Delivers SNOMED, dm+d, and neighbourhood insights in one system
+- Delivers SNOMED, dm+d, neighbourhood insights, and NHS UK OpenGPT dataset lane in one system
 - Supports both enterprise UX and API-first monetization paths
 
 ---
@@ -242,6 +246,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 **Bullets:**
 - Converted real runtime issues into reusable reliability patterns
 - Added transparent diagnostics for terminology and payment flows
+- Corrected cross-route payment wiring issues quickly from live evidence (not assumptions)
 - Reduced demo and pilot risk by proving recovery paths, not only happy paths
 - Demonstrated ability to ship fixes quickly from evidence, not assumptions
 
@@ -280,6 +285,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 ### Appendix B - Core Routes
 - `/nhs/neighbourhood-insights`
 - `/nhs/hes-scale`
+- `/nhs/uk-dataset-lane`
 - `/nhs/snomed-intelligence`
 - `/nhs/dmd-intelligence`
 

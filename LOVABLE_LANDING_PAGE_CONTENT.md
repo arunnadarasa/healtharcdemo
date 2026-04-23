@@ -30,7 +30,7 @@ Explore the Demo
 View GitHub
 
 **Trust strip (short):**  
-OpenEHR + SNOMED CT + NHSBSA dm+d + Arc + Circle Gateway x402
+OpenEHR + SNOMED CT + NHSBSA dm+d + NHS UK OpenGPT lane + Arc + x402
 
 ---
 
@@ -71,13 +71,16 @@ Terminology lookup and indexed concept workflows with paid enrichment paths.
 ### 3) dm+d Intelligence
 NHSBSA dm+d drug intelligence experience with free lookup and paid summary endpoints.
 
-### 4) Flexible Settlement
+### 4) NHS UK Dataset Lane
+CSV-grounded retrieval and synthesis across OpenGPT-style NHS UK datasets with controllable prompt precision fields.
+
+### 5) Flexible Settlement
 Choose Circle Gateway x402 or thirdweb facilitator paths based on your wallet mode and payment strategy.
 
-### 5) Wallet UX Built In
+### 6) Wallet UX Built In
 Support for MetaMask and Circle wallet flows, including Gateway top-up support and balance visibility.
 
-### 6) Verifiable Activity
+### 7) Verifiable Activity
 Page-level transaction logs make it easy to show payment events, references, and explorer links.
 
 ---
@@ -88,7 +91,7 @@ Page-level transaction logs make it easy to show payment events, references, and
 Choose MetaMask or Circle wallet mode and fund USDC on Arc Testnet.
 
 **Step 2 - Run Intelligence Calls**  
-Use free endpoints for discovery and paid endpoints for premium lookup or summarization.
+Use free endpoints for discovery and paid endpoints for premium lookup or summarization (including NHS UK CSV-grounded synthesis).
 
 **Step 3 - Settle and Verify**  
 x402 handles payment requirements, and transaction history provides proof of paid usage.
@@ -139,6 +142,7 @@ Clinical Arc is validated with live service checks, not only static screenshots.
 - dm+d integration includes fallback query variants to reduce strict-match failures
 - API responses expose attempted and matched queries for transparent troubleshooting
 - Operational runbooks separate “service up” from “correct terminology edition loaded”
+- dm+d Thirdweb settlement now explicitly covers paid `/api/dmd/lookup` and `/api/dmd/summary` routes
 
 ---
 
@@ -155,6 +159,8 @@ In practice, terminology and payment systems fail in nuanced ways. We documented
 - Snowstorm UK imports can take significant time and require enough Elasticsearch/Snowstorm memory to complete reliably
 - dm+d upstream search can be strict on casing and exact terms; backend fallback logic improves user-facing reliability
 - Distinguishing wallet balance from Gateway balance avoids false payment debugging trails
+- Keeping synthesis and retrieval on the same NHS UK dataset lane avoids data-source mismatch confusion
+- Moving paid results directly under paid action panels reduces operator scrolling and support friction
 
 ---
 

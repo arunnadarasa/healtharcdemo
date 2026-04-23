@@ -6,7 +6,7 @@
 
 **HealthTech Protocol** is the open **pattern stack** for verifiable payments and care-adjacent flows—**settled on [Arc](https://docs.arc.network/arc/references/connect-to-arc)** with **USDC nanopayments** via [Circle Gateway](https://developers.circle.com/gateway/nanopayments) and **x402** ([overview](https://developers.circle.com/gateway/nanopayments/concepts/x402)). The Express server still carries a broad route surface (NHS, neighbourhood, gateways, etc.); **Treat [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md) as the API / behavior contract** where you wire clients or tests.
 
-**Canonical upstream:** **[arunnadarasa/clinicalarc](https://github.com/arunnadarasa/clinicalarc)**. **This hackathon checkout / demo remote:** **[arunnadarasa/healtharcdemo](https://github.com/arunnadarasa/healtharcdemo)**. **Notes:** [`OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md`](./OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md). **Data safety:** use **dummy or synthetic** patient data in demos only — never real patient-identifiable data.
+**Canonical upstream:** **[arunnadarasa/clinicalarc](https://github.com/arunnadarasa/clinicalarc)**. **This hackathon checkout / demo remote:** **[arunnadarasa/healtharcdemo](https://github.com/arunnadarasa/healtharcdemo)**. **Live landing page:** **[clinipayarc.lovable.app](https://clinipayarc.lovable.app)**. **Live slide deck:** **[clinipayarcslides.lovable.app](https://clinipayarcslides.lovable.app)**. **Notes:** [`OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md`](./OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md). **Data safety:** use **dummy or synthetic** patient data in demos only — never real patient-identifiable data.
 
 ---
 
@@ -56,8 +56,8 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 - **Payments:** **Circle Gateway** x402 (`@circle-fin/x402-batching`), **x402** stack (`@x402/core`, `@x402/fetch`, `@x402/evm`), optional **Thirdweb** settlement paths where enabled, **viem** + **Arc Testnet** (`arcTestnet`, chain id **5042002**) — see [`docs/ARC_X402_NOTES.md`](./docs/ARC_X402_NOTES.md)  
 - **Backend:** Node.js, Express 5  
 - **Docs:** [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md), [`docs/ARC_X402_NOTES.md`](./docs/ARC_X402_NOTES.md), [`docs/OPENAPI_DISCOVERY.md`](./docs/OPENAPI_DISCOVERY.md)  
-- **Landing / website handoff:** [`LOVABLE_LANDING_PAGE_CONTENT.md`](./LOVABLE_LANDING_PAGE_CONTENT.md), [`HEALTH_TECH_PROTOCOL_AZ.md`](./HEALTH_TECH_PROTOCOL_AZ.md)  
-- **Presentation deck copy:** [`SLIDE_DECK_CONTENT_TECH_AND_VC.md`](./SLIDE_DECK_CONTENT_TECH_AND_VC.md)  
+- **Landing / website handoff:** [`LOVABLE_LANDING_PAGE_CONTENT.md`](./LOVABLE_LANDING_PAGE_CONTENT.md), [`HEALTH_TECH_PROTOCOL_AZ.md`](./HEALTH_TECH_PROTOCOL_AZ.md), live: [clinipayarc.lovable.app](https://clinipayarc.lovable.app)  
+- **Presentation deck copy:** [`SLIDE_DECK_CONTENT_TECH_AND_VC.md`](./SLIDE_DECK_CONTENT_TECH_AND_VC.md), live: [clinipayarcslides.lovable.app](https://clinipayarcslides.lovable.app)  
 - **Agent / tribal knowledge:** [`CLAWHUB.md`](./CLAWHUB.md)  
 - **LLM context bundle:** [`public/llm-full.txt`](./public/llm-full.txt) — **regenerate:** `npm run build:llm`  
 
