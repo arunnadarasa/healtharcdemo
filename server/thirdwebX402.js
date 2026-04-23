@@ -102,20 +102,53 @@ function waitUntilFromEnv() {
 }
 
 async function runSettlePayment(req, res, next, routeMeta) {
+  const startedAt = Date.now()
+  const waitUntil = waitUntilFromEnv()
+  const rawPaymentData = paymentDataFromReq(req)
+  // #region agent log
+  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+    body: JSON.stringify({
+      sessionId: '8e1b23',
+      runId: 'run-timeout-6',
+      hypothesisId: 'T1',
+      location: 'server/thirdwebX402.js:runSettlePayment:start',
+      message: 'Starting thirdweb settlePayment',
+      data: { path: req.path, waitUntil, hasPaymentData: typeof rawPaymentData === 'string' && rawPaymentData.length > 0 },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {})
+  // #endregion
   const result = await settlePayment({
     resourceUrl: resourceUrlFromReq(req),
     method: req.method,
-    paymentData: normalizePaymentDataForThirdwebSettle(paymentDataFromReq(req)),
+    paymentData: normalizePaymentDataForThirdwebSettle(rawPaymentData),
     payTo: payTo(),
     network: arcTestnet,
     price: routeMeta.price,
     facilitator: getThirdwebFacilitator(),
-    waitUntil: waitUntilFromEnv(),
+    waitUntil,
     routeConfig: {
       description: routeMeta.description,
       mimeType: 'application/json',
     },
   })
+  // #region agent log
+  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+    body: JSON.stringify({
+      sessionId: '8e1b23',
+      runId: 'run-timeout-6',
+      hypothesisId: 'T1',
+      location: 'server/thirdwebX402.js:runSettlePayment:result',
+      message: 'thirdweb settlePayment finished',
+      data: { path: req.path, status: result.status, elapsedMs: Date.now() - startedAt },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {})
+  // #endregion
 
   if (result.status === 200) {
     if (result.responseHeaders) {
@@ -176,6 +209,12 @@ export function createNeighbourhoodThirdwebPaymentMiddleware() {
       return runSettlePayment(req, res, next, {
         price: '$0.01',
         description: 'HES FTS / prefix search at scale (demo)',
+      })
+    }
+    if (req.path === '/uk/search') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'NHS UK generated dataset CSV search (demo)',
       })
     }
     if (req.path === '/scale/cross-summary') {

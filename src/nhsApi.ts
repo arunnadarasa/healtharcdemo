@@ -196,21 +196,6 @@ export async function apiPost<T>(
   opts: ApiOpts,
 ): Promise<ApiResponse<T>> {
   const facilitator = resolveNhsFacilitatorForWallet(wallet, getX402FacilitatorForPath(path))
-  // #region agent log
-  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-    body: JSON.stringify({
-      sessionId: '8e1b23',
-      runId: 'run-timeout-1',
-      hypothesisId: 'T1_T2',
-      location: 'src/nhsApi.ts:apiPost:start',
-      message: 'apiPost started for paid route',
-      data: { path, facilitator, network: opts.network },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
   const headers = new Headers(getAuthHeaders(role, wallet))
   headers.set('X-X402-Facilitator', facilitator)
   const reqInit: RequestInit = {
@@ -223,38 +208,16 @@ export async function apiPost<T>(
     res = await nhsX402Fetch(path, reqInit, { wallet, network: opts.network, facilitator })
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Network error.'
-    // #region agent log
-    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-      body: JSON.stringify({
-        sessionId: '8e1b23',
-        runId: 'run-timeout-1',
-        hypothesisId: 'T1_T3',
-        location: 'src/nhsApi.ts:apiPost:fetch-error',
-        message: 'nhsX402Fetch threw in apiPost',
-        data: { path, facilitator, error: msg },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
+    if (msg.toLowerCase().includes('signal timed out')) {
+      return {
+        ok: false,
+        error:
+          'Payment handshake timed out before completion. Keep the wallet approval window open and retry. If this repeats, increase VITE_X402_REQUEST_TIMEOUT_MS (default 90000).',
+        status: 0,
+      }
+    }
     return { ok: false, error: msg, status: 0 }
   }
-  // #region agent log
-  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-    body: JSON.stringify({
-      sessionId: '8e1b23',
-      runId: 'run-timeout-1',
-      hypothesisId: 'T2',
-      location: 'src/nhsApi.ts:apiPost:response',
-      message: 'apiPost received response object',
-      data: { path, status: res.status, ok: res.ok },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
   const payload = await parseJsonSafe(res)
   if (!res.ok)
     return { ok: false, error: errorFromResponse(res, payload, { facilitator }), status: res.status }

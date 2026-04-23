@@ -20,6 +20,25 @@ export function createSnomedRouter() {
     if (!/^\d+$/.test(id)) {
       return res.status(400).json({ error: 'conceptId must be a numeric SNOMED concept identifier' })
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+      body: JSON.stringify({
+        sessionId: '8e1b23',
+        runId: 'run-snomed-system-uri-1',
+        hypothesisId: 'H5',
+        location: 'server/snomed/router.js:/lookup/:conceptId:entry',
+        message: 'SNOMED lookup route called',
+        data: {
+          conceptId: id,
+          queryVersion: typeof req.query?.version === 'string' ? req.query.version : null,
+          querySystem: typeof req.query?.system === 'string' ? req.query.system : null,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
     try {
       const result = await fhirLookupSnomedConcept(id)
       const issueCode =
@@ -38,6 +57,25 @@ export function createSnomedRouter() {
           ? result.status
           : 502
       if (looksLikeMissingLocalEdition) {
+        // #region agent log
+        fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+          body: JSON.stringify({
+            sessionId: '8e1b23',
+            runId: 'run-snomed-system-uri-1',
+            hypothesisId: 'H3_H4',
+            location: 'server/snomed/router.js:/lookup/:conceptId:not-found-hint',
+            message: 'Returning not-found with local edition hint',
+            data: {
+              conceptId: id,
+              status: result.status,
+              issueCode,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
         return res.status(code).json({
           ...result,
           hint:

@@ -126,3 +126,22 @@ Aligned references:
 This repository is for innovation and demonstration in a hackathon context.  
 Do not connect real clinical systems or ingest real patient records without appropriate governance, legal basis, and security controls.
 
+## Session Update (NHS UK Dataset Lane + x402 Debug)
+
+1. **Data-source mismatch can look like search failure.**  
+   The NHS UK lane initially called HES scale endpoints, so terms present in NHS UK CSVs (for example "blood pressure") returned zero rows. Fixing endpoint/data-source alignment immediately resolved the confusion.
+
+2. **Separate "payment success" from "data relevance" in UX.**  
+   A paid call can succeed (x402 settled, HTTP 200) while still returning empty rows due to query/dataset mismatch. Show both payment result and dataset provenance clearly.
+
+3. **Runtime logs beat assumptions for x402 latency.**  
+   Instrumentation around client fetch, facilitator settlement, and handler execution quickly isolated where time was spent and avoided speculative fixes.
+
+4. **Use dedicated endpoints per dataset family.**  
+   Adding a CSV-backed `/api/neighbourhood/uk/search` route for NHS UK generated datasets prevents accidental coupling with HES FTS/search semantics.
+
+5. **Keep payment gate behavior consistent across new routes.**  
+   New paid endpoints must be wired in both server gate wrappers and facilitator middleware to avoid inconsistent challenge/settlement behavior.
+
+6. **Operationally, hot restarts are part of debugging discipline.**  
+   Restarting `npm run dev:full` after route/middleware changes prevented stale assumptions during iterative testing.

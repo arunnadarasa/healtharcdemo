@@ -9,6 +9,7 @@ import {
   searchHesFts,
   searchHesPrefix,
 } from './hesDb.js'
+import { searchNhsUkCsv } from './nhsUkCsvSearch.js'
 
 function emptySearchHint(dataset, rowCount, stats) {
   if (rowCount > 0) return null
@@ -153,6 +154,22 @@ export function createNeighbourhoodRouter(deps) {
         amount: '0.01',
       },
       async (req, res, paymentCtx) => {
+        const startedAt = Date.now()
+        // #region agent log
+        fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+          body: JSON.stringify({
+            sessionId: '8e1b23',
+            runId: 'run-timeout-6',
+            hypothesisId: 'T2',
+            location: 'server/neighbourhood/router.js:scale-cross-summary:start',
+            message: 'Entered /scale/cross-summary handler',
+            data: { hasLsoa: typeof req.body?.lsoa === 'string' && req.body.lsoa.trim().length > 0 },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
         const key = process.env.FEATHERLESS_API_KEY?.trim()
         if (!key) {
           return res.status(503).json({
@@ -173,6 +190,22 @@ export function createNeighbourhoodRouter(deps) {
         const upstream = process.env.FEATHERLESS_API_URL?.trim() || 'https://api.featherless.ai/v1/chat/completions'
 
         try {
+          const upstreamStartedAt = Date.now()
+          // #region agent log
+          fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+            body: JSON.stringify({
+              sessionId: '8e1b23',
+              runId: 'run-timeout-6',
+              hypothesisId: 'T2',
+              location: 'server/neighbourhood/router.js:scale-cross-summary:upstream-start',
+              message: 'Starting Featherless upstream request',
+              data: { model, upstreamHost: upstream },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
           const fr = await fetch(upstream, {
             method: 'POST',
             headers: {
@@ -267,6 +300,37 @@ export function createNeighbourhoodRouter(deps) {
   )
 
   router.post(
+    '/uk/search',
+    ...gate(
+      {
+        enabled: paymentGateEnabled,
+        amount: '0.01',
+      },
+      async (req, res, paymentCtx) => {
+        const { q, dataset, limit, offset, mode } = req.body ?? {}
+        try {
+          const result = await searchNhsUkCsv({ q, dataset, limit, offset, mode })
+          return res.json({
+            ok: true,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            q: typeof q === 'string' ? q : '',
+            dataset: result.dataset,
+            searchMode: result.searchMode,
+            total: result.total,
+            rows: result.rows,
+            disclaimer: 'Generated NHS UK text dataset search — demo only, not clinical advice.',
+          })
+        } catch (e) {
+          return res.status(400).json({
+            error: String(e?.message ?? e),
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+          })
+        }
+      },
+    ),
+  )
+
+  router.post(
     '/scale/cross-summary',
     ...gate(
       {
@@ -306,6 +370,21 @@ export function createNeighbourhoodRouter(deps) {
               max_tokens: 700,
             }),
           })
+          // #region agent log
+          fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+            body: JSON.stringify({
+              sessionId: '8e1b23',
+              runId: 'run-timeout-6',
+              hypothesisId: 'T2',
+              location: 'server/neighbourhood/router.js:scale-cross-summary:upstream-response',
+              message: 'Featherless upstream responded',
+              data: { status: fr.status, elapsedMs: Date.now() - upstreamStartedAt },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
           const text = await fr.text()
           let json
           try {
@@ -326,6 +405,21 @@ export function createNeighbourhoodRouter(deps) {
             disclaimer: 'Not medical advice. Synthetic artificial HES only.',
           })
         } catch (e) {
+          // #region agent log
+          fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
+            body: JSON.stringify({
+              sessionId: '8e1b23',
+              runId: 'run-timeout-6',
+              hypothesisId: 'T2',
+              location: 'server/neighbourhood/router.js:scale-cross-summary:error',
+              message: 'Error in /scale/cross-summary handler',
+              data: { error: e instanceof Error ? e.message : String(e), elapsedMs: Date.now() - startedAt },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
           return res.status(502).json({
             error: String(e?.message ?? e),
             receiptRef: paymentCtx.paymentReceiptRef ?? null,

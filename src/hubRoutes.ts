@@ -29,6 +29,11 @@ export const HUB_ROUTE_GROUPS: HubRouteGroup[] = [
         title: 'dm+d intelligence',
         hint: 'NHSBSA dm+d lookup + paid USDC enrichment and summaries',
       },
+      {
+        href: '/nhs/uk-dataset-lane',
+        title: 'NHS UK dataset lane',
+        hint: 'OpenGPT-aligned NHS datasets + CogStack synergy + USDC nanopayments',
+      },
     ],
   },
 ]

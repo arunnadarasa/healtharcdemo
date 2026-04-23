@@ -17,7 +17,7 @@ services:
       - xpack.security.enabled=false
       - node.name=snowstorm
       - cluster.name=snowstorm-cluster
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
     volumes:
       - snowstorm-elastic:/usr/share/elasticsearch/data
     networks:
@@ -39,7 +39,8 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-    entrypoint: "java -Xms512m -Xmx1g --add-opens java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED -cp @/app/jib-classpath-file org.snomed.snowstorm.SnowstormApplication --elasticsearch.urls=http://es:9200"
+    # Smaller batches reduce scroll/bulk time so the ES client stays under Snowstorm's default ~30s socket timeout (see IHTSDO/snowstorm#158, #679).
+    entrypoint: "java -Xms1g -Xmx2g --add-opens java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED -cp @/app/jib-classpath-file org.snomed.snowstorm.SnowstormApplication --elasticsearch.urls=http://es:9200 --elasticvc.save.batch-size=500"
     networks:
       snowstorm-net:
         aliases:
