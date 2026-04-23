@@ -145,3 +145,12 @@ Do not connect real clinical systems or ingest real patient records without appr
 
 6. **Operationally, hot restarts are part of debugging discipline.**  
    Restarting `npm run dev:full` after route/middleware changes prevented stale assumptions during iterative testing.
+
+7. **Align synthesis and retrieval to the same dataset lane.**  
+   If retrieval uses NHS UK OpenGPT CSV sources, synthesis should also ground on those same sources; mixing HES synthesis with NHS UK retrieval creates confusing, inconsistent outputs.
+
+8. **Remove irrelevant inherited fields during route migrations.**  
+   The `LSOA filter` made sense for HES aggregate routes but not for NHS UK CSV synthesis. Removing legacy inputs improves UX clarity and prevents payload drift.
+
+9. **Precision controls improve controllability for demo prompts.**  
+   Adding `content focus`, `audience`, and `context rows` fields produced more targeted synthesis output and made behavior easier to explain to judges and reviewers.

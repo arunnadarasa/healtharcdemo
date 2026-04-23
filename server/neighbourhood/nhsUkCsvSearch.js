@@ -116,3 +116,25 @@ export async function searchNhsUkCsv({
     rows: sliced,
   }
 }
+
+export async function selectNhsUkCsvContext({
+  dataset,
+  query,
+  maxRows = 12,
+}) {
+  const ds = normalizeDataset(dataset)
+  const lim = Math.min(40, Math.max(3, Number(maxRows) || 12))
+  const q = typeof query === 'string' ? query.trim() : ''
+  const rows = await loadDatasetRows(ds)
+  if (!q) return rows.slice(0, lim)
+  const qLower = safeLower(q)
+  const starts = []
+  const contains = []
+  for (const row of rows) {
+    const textLower = safeLower(row.text)
+    if (textLower.startsWith(qLower)) starts.push(row)
+    else if (textLower.includes(qLower)) contains.push(row)
+  }
+  const selected = starts.length > 0 ? starts : [...starts, ...contains]
+  return selected.slice(0, lim)
+}

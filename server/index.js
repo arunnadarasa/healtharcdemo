@@ -104,38 +104,6 @@ app.use(express.json({ limit: '1mb' }))
 
 app.use((req, res, next) => {
   if (req.path === '/api/neighbourhood/insights/lsoa') {
-    // #region agent log
-    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-      body: JSON.stringify({
-        sessionId: '8e1b23',
-        runId: 'run-timeout-2',
-        hypothesisId: 'U3',
-        location: 'server/index.js:middleware:lsoa-entry',
-        message: 'LSOA request entered express app',
-        data: { method: req.method },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
-    res.on('finish', () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-        body: JSON.stringify({
-          sessionId: '8e1b23',
-          runId: 'run-timeout-2',
-          hypothesisId: 'U3',
-          location: 'server/index.js:middleware:lsoa-finish',
-          message: 'LSOA request finished in express app',
-          data: { status: res.statusCode },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
-    })
   }
   next()
 })
@@ -567,21 +535,6 @@ app.post('/api/circle/dev-wallet', async (_req, res) => {
 
 /** Server-side EIP-712 signing for Circle developer-controlled wallets (used by x402 Circle mode). */
 app.post('/api/circle/sign-typed-data', async (req, res) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-    body: JSON.stringify({
-      sessionId: '8e1b23',
-      runId: 'run-timeout-2',
-      hypothesisId: 'U1_U2',
-      location: 'server/index.js:/api/circle/sign-typed-data:entry',
-      message: 'Circle sign endpoint entered',
-      data: { hasWalletId: typeof req.body?.walletId === 'string' },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
   const { client, error } = circleDevWalletClientOrError()
   if (error) return res.status(500).json({ error })
 
@@ -636,21 +589,6 @@ app.post('/api/circle/sign-typed-data', async (req, res) => {
     if (!signature) {
       return res.status(502).json({ error: 'Circle signTypedData did not return signature.' })
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-      body: JSON.stringify({
-        sessionId: '8e1b23',
-        runId: 'run-timeout-2',
-        hypothesisId: 'U2',
-        location: 'server/index.js:/api/circle/sign-typed-data:success',
-        message: 'Circle sign endpoint returning signature',
-        data: { walletId, hasSignature: true },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
     return res.status(200).json({ ok: true, walletId, signature })
   } catch (e) {
     const status = Number(e?.response?.status) || 502

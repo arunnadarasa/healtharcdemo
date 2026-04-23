@@ -57,6 +57,7 @@ const NEIGHBOURHOOD_PAID_ENDPOINTS = new Set([
   '/api/neighbourhood/insights/summary',
   '/api/neighbourhood/scale/search',
   '/api/neighbourhood/uk/search',
+  '/api/neighbourhood/uk/synthesis',
   '/api/neighbourhood/scale/cross-summary',
 ])
 
@@ -70,6 +71,7 @@ const NEIGHBOURHOOD_INSIGHTS_ONLY = new Set([
 const HES_SCALE_ENDPOINTS = new Set([
   '/api/neighbourhood/scale/search',
   '/api/neighbourhood/uk/search',
+  '/api/neighbourhood/uk/synthesis',
   '/api/neighbourhood/scale/cross-summary',
 ])
 

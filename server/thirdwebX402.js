@@ -102,24 +102,8 @@ function waitUntilFromEnv() {
 }
 
 async function runSettlePayment(req, res, next, routeMeta) {
-  const startedAt = Date.now()
   const waitUntil = waitUntilFromEnv()
   const rawPaymentData = paymentDataFromReq(req)
-  // #region agent log
-  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-    body: JSON.stringify({
-      sessionId: '8e1b23',
-      runId: 'run-timeout-6',
-      hypothesisId: 'T1',
-      location: 'server/thirdwebX402.js:runSettlePayment:start',
-      message: 'Starting thirdweb settlePayment',
-      data: { path: req.path, waitUntil, hasPaymentData: typeof rawPaymentData === 'string' && rawPaymentData.length > 0 },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
   const result = await settlePayment({
     resourceUrl: resourceUrlFromReq(req),
     method: req.method,
@@ -134,21 +118,6 @@ async function runSettlePayment(req, res, next, routeMeta) {
       mimeType: 'application/json',
     },
   })
-  // #region agent log
-  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-    body: JSON.stringify({
-      sessionId: '8e1b23',
-      runId: 'run-timeout-6',
-      hypothesisId: 'T1',
-      location: 'server/thirdwebX402.js:runSettlePayment:result',
-      message: 'thirdweb settlePayment finished',
-      data: { path: req.path, status: result.status, elapsedMs: Date.now() - startedAt },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
 
   if (result.status === 200) {
     if (result.responseHeaders) {
@@ -174,23 +143,6 @@ export function createNeighbourhoodThirdwebPaymentMiddleware() {
     return (_req, _res, next) => next()
   }
   return async (req, res, next) => {
-    // #region agent log
-    if (req.method === 'POST' && req.path === '/insights/lsoa') {
-      fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-        body: JSON.stringify({
-          sessionId: '8e1b23',
-          runId: 'run-timeout-3',
-          hypothesisId: 'V3',
-          location: 'server/thirdwebX402.js:neighbourhood-middleware:entry',
-          message: 'Entered thirdweb neighbourhood middleware',
-          data: { facilitator: req.nhsX402Facilitator, path: req.path },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-    }
-    // #endregion
     if (req.nhsX402Facilitator !== 'thirdweb') return next()
     if (req.method !== 'POST') return next()
     if (req.path === '/insights/lsoa') {
@@ -215,6 +167,12 @@ export function createNeighbourhoodThirdwebPaymentMiddleware() {
       return runSettlePayment(req, res, next, {
         price: '$0.01',
         description: 'NHS UK generated dataset CSV search (demo)',
+      })
+    }
+    if (req.path === '/uk/synthesis') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'NHS UK generated dataset synthesis (demo)',
       })
     }
     if (req.path === '/scale/cross-summary') {

@@ -74,7 +74,6 @@ export async function nhsX402Fetch(
   const circleMeta = getCircleSigningWalletMeta(walletLower)
   const useThirdweb = prefersThirdweb && !circleMeta
   if (circleMeta) {
-    const startedAt = Date.now()
     const signer = {
       address: opts.wallet as `0x${string}`,
       signTypedData: (params: Record<string, unknown>) => signTypedDataWithCircleWallet(circleMeta, params, walletLower),
@@ -83,55 +82,10 @@ export async function nhsX402Fetch(
       ? createExactArcX402PaymentFetchWithSigner(signer)
       : createArcX402PaymentFetchWithSigner(signer)
     const timedInit = withTimeoutInit(init, timeoutMs)
-    // #region agent log
-    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-      body: JSON.stringify({
-        sessionId: '8e1b23',
-        runId: 'run-timeout-5',
-        hypothesisId: 'N1',
-        location: 'src/nhsArcPaidFetch.ts:nhsX402Fetch:circle-before-fetch',
-        message: 'Circle signing flow starting paid fetch',
-        data: { url, timeoutMs, useThirdweb },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
     try {
       const res = await fetchWithPay(url, timedInit)
-      // #region agent log
-      fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-        body: JSON.stringify({
-          sessionId: '8e1b23',
-          runId: 'run-timeout-6',
-          hypothesisId: 'T3',
-          location: 'src/nhsArcPaidFetch.ts:nhsX402Fetch:circle-fetch-success',
-          message: 'Circle signing flow paid fetch succeeded',
-          data: { url, status: res.status, elapsedMs: Date.now() - startedAt },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       return res
     } catch (e) {
-      // #region agent log
-      fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-        body: JSON.stringify({
-          sessionId: '8e1b23',
-          runId: 'run-timeout-5',
-          hypothesisId: 'N2',
-          location: 'src/nhsArcPaidFetch.ts:nhsX402Fetch:circle-fetch-error',
-          message: 'Circle signing flow paid fetch failed',
-          data: { url, timeoutMs, error: e instanceof Error ? e.message : String(e) },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       throw e
     }
   }
@@ -166,57 +120,11 @@ export async function nhsX402Fetch(
   const fetchWithPay = useThirdweb
     ? createExactArcX402PaymentFetch(provider, opts.wallet as `0x${string}`)
     : createArcX402PaymentFetch(provider, opts.wallet as `0x${string}`)
-  const startedAt = Date.now()
   const timedInit = withTimeoutInit(init, timeoutMs)
-  // #region agent log
-  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-    body: JSON.stringify({
-      sessionId: '8e1b23',
-      runId: 'run-timeout-5',
-      hypothesisId: 'N1',
-      location: 'src/nhsArcPaidFetch.ts:nhsX402Fetch:metamask-before-fetch',
-      message: 'MetaMask flow starting paid fetch',
-      data: { url, timeoutMs, useThirdweb, facilitator: effectiveFacilitator },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
   try {
     const res = await fetchWithPay(url, timedInit)
-    // #region agent log
-    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-      body: JSON.stringify({
-        sessionId: '8e1b23',
-        runId: 'run-timeout-6',
-        hypothesisId: 'T3',
-        location: 'src/nhsArcPaidFetch.ts:nhsX402Fetch:metamask-fetch-success',
-        message: 'MetaMask flow paid fetch succeeded',
-        data: { url, status: res.status, elapsedMs: Date.now() - startedAt },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
     return res
   } catch (e) {
-    // #region agent log
-    fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-      body: JSON.stringify({
-        sessionId: '8e1b23',
-        runId: 'run-timeout-5',
-        hypothesisId: 'N2',
-        location: 'src/nhsArcPaidFetch.ts:nhsX402Fetch:metamask-fetch-error',
-        message: 'MetaMask flow paid fetch failed',
-        data: { url, timeoutMs, error: e instanceof Error ? e.message : String(e) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
     throw e
   }
 }

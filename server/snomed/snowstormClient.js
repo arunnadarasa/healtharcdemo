@@ -24,21 +24,6 @@ export async function getSnowstormStatus() {
   const probes = [`${base}/actuator/health`, `${base}/`]
   for (const url of probes) {
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-        body: JSON.stringify({
-          sessionId: '8e1b23',
-          runId: 'run-snowstorm-health-1',
-          hypothesisId: 'H1_H2',
-          location: 'server/snomed/snowstormClient.js:getSnowstormStatus:probe-start',
-          message: 'Starting Snowstorm health probe',
-          data: { base, probeUrl: url },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       const ac = new AbortController()
       const t = setTimeout(() => ac.abort(), 4000)
       const res = await fetch(url, { signal: ac.signal })
@@ -51,21 +36,6 @@ export async function getSnowstormStatus() {
         body = { raw: text.slice(0, 300) }
       }
       if (res.ok || res.status === 401) {
-        // #region agent log
-        fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-          body: JSON.stringify({
-            sessionId: '8e1b23',
-            runId: 'run-snowstorm-health-1',
-            hypothesisId: 'H3',
-            location: 'server/snomed/snowstormClient.js:getSnowstormStatus:probe-success',
-            message: 'Snowstorm health probe succeeded',
-            data: { probeUrl: url, status: res.status },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
         return {
           configured: true,
           reachable: true,
@@ -76,25 +46,6 @@ export async function getSnowstormStatus() {
         }
       }
     } catch (e) {
-      // #region agent log
-      fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-        body: JSON.stringify({
-          sessionId: '8e1b23',
-          runId: 'run-snowstorm-health-1',
-          hypothesisId: 'H1_H4_H5',
-          location: 'server/snomed/snowstormClient.js:getSnowstormStatus:probe-error',
-          message: 'Snowstorm health probe failed',
-          data: {
-            probeUrl: url,
-            errorName: e && e.name ? String(e.name) : null,
-            errorMessage: e && e.message ? String(e.message) : String(e || ''),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       /* try next probe */
     }
   }
@@ -118,26 +69,6 @@ export async function fhirLookupSnomedConcept(conceptId) {
   const u = new URL(`${base}/fhir/CodeSystem/$lookup`)
   u.searchParams.set('system', 'http://snomed.info/sct')
   u.searchParams.set('code', String(conceptId))
-  // #region agent log
-  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-    body: JSON.stringify({
-      sessionId: '8e1b23',
-      runId: 'run-snomed-system-uri-1',
-      hypothesisId: 'H1_H2',
-      location: 'server/snomed/snowstormClient.js:fhirLookupSnomedConcept:request',
-      message: 'Sending Snowstorm FHIR lookup request',
-      data: {
-        base,
-        conceptId: String(conceptId),
-        requestUrl: u.toString(),
-        params: { system: u.searchParams.get('system'), code: u.searchParams.get('code'), version: u.searchParams.get('version') },
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
   const res = await fetch(u.toString(), {
     headers: {
       Accept: 'application/fhir+json',
@@ -152,30 +83,5 @@ export async function fhirLookupSnomedConcept(conceptId) {
   } catch {
     json = { raw: text.slice(0, 8000) }
   }
-  const issue0 =
-    json && typeof json === 'object' && Array.isArray(json.issue) && json.issue[0] && typeof json.issue[0] === 'object'
-      ? json.issue[0]
-      : null
-  // #region agent log
-  fetch('http://127.0.0.1:7515/ingest/648691d5-c810-40b0-9d90-0cf2caae2fc7', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8e1b23' },
-    body: JSON.stringify({
-      sessionId: '8e1b23',
-      runId: 'run-snomed-system-uri-1',
-      hypothesisId: 'H3_H4',
-      location: 'server/snomed/snowstormClient.js:fhirLookupSnomedConcept:response',
-      message: 'Received Snowstorm FHIR lookup response',
-      data: {
-        status: res.status,
-        ok: res.ok,
-        issueCode: issue0 && typeof issue0.code !== 'undefined' ? String(issue0.code) : null,
-        diagnostics: issue0 && typeof issue0.diagnostics === 'string' ? issue0.diagnostics : null,
-        error: json && typeof json === 'object' && typeof json.error === 'string' ? json.error : null,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
   return { ok: res.ok, status: res.status, body: json }
 }

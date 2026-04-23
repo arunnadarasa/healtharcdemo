@@ -91,7 +91,9 @@ function NhsUkDataMarketplaceGrid({
   const [activeAction, setActiveAction] = useState<'' | 'search' | 'summary'>('')
   const [selectedDataset, setSelectedDataset] = useState<DatasetId>('nhs_qa')
   const [query, setQuery] = useState('chest pain red flags')
-  const [lsoa, setLsoa] = useState('')
+  const [summaryFocus, setSummaryFocus] = useState('')
+  const [summaryAudience, setSummaryAudience] = useState<'patient' | 'clinician'>('patient')
+  const [contextRows, setContextRows] = useState('12')
   const [searchOut, setSearchOut] = useState('')
   const [summaryOut, setSummaryOut] = useState('')
   const [txRows, setTxRows] = useState<NhsTxItem[]>(() => listNhsTxHistoryHesScale(session.network))
@@ -162,11 +164,17 @@ function NhsUkDataMarketplaceGrid({
     setActiveAction('summary')
     setSummaryOut('')
     try {
-      const res = await apiPost<{ summary?: string; model?: string }>(
-        '/api/neighbourhood/scale/cross-summary',
+      const res = await apiPost<{ summary?: string; model?: string; contextCount?: number; dataset?: string }>(
+        '/api/neighbourhood/uk/synthesis',
         session.role,
         session.wallet,
-        { lsoa: lsoa.trim() || undefined },
+        {
+          dataset: selectedDataset,
+          query: query.trim() || undefined,
+          focus: summaryFocus.trim() || undefined,
+          audience: summaryAudience,
+          maxContextRows: Number.parseInt(contextRows, 10) || 12,
+        },
         { network: session.network },
       )
       if (!res.ok) {
@@ -179,6 +187,7 @@ function NhsUkDataMarketplaceGrid({
           {
             selectedDataset: selectedCard.title,
             model: res.data?.model,
+            contextCount: res.data?.contextCount,
             summary: res.data?.summary,
           },
           null,
@@ -319,8 +328,23 @@ function NhsUkDataMarketplaceGrid({
           Generate a concise NHS-facing synthesis response (monetized endpoint) for operational triage intelligence.
         </p>
         <label>
-          LSOA filter (optional)
-          <input value={lsoa} onChange={(e) => setLsoa(e.target.value)} placeholder="e.g. E01022770" />
+          Content focus (optional)
+          <input
+            value={summaryFocus}
+            onChange={(e) => setSummaryFocus(e.target.value)}
+            placeholder="e.g. red flags, escalation, and self-care boundaries"
+          />
+        </label>
+        <label>
+          Audience
+          <select value={summaryAudience} onChange={(e) => setSummaryAudience(e.target.value as 'patient' | 'clinician')}>
+            <option value="patient">Patient-facing</option>
+            <option value="clinician">Clinician-facing</option>
+          </select>
+        </label>
+        <label>
+          Context rows
+          <input value={contextRows} onChange={(e) => setContextRows(e.target.value)} placeholder="e.g. 12" />
         </label>
         <div className="actions">
           <button type="button" disabled={!session.wallet || busy} onClick={() => void runPaidSummary()}>
