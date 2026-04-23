@@ -31,13 +31,47 @@ type AttemptResult = {
 const RUNNER_ATTEMPTS_KEY = 'nhs_onchain_runner_attempts_v1'
 const RUNNER_PAGE_SIZE = 51
 
+/** Round-trip exports omitted `ok` for a while — infer mode/`ok` so imports and localStorage reload stay valid. */
+function normalizeAttemptRow(input: Partial<AttemptResult> & { index?: unknown }): AttemptResult | null {
+  if (typeof input.index !== 'number' || typeof input.createdAt !== 'string' || typeof input.endpoint !== 'string') {
+    return null
+  }
+  let mode: RunnerMode
+  if (input.mode === 'x402_circle_nanopayments' || input.mode === 'direct_onchain_transfer') {
+    mode = input.mode
+  } else if (input.endpoint.startsWith('/api/')) {
+    mode = 'x402_circle_nanopayments'
+  } else {
+    mode = 'direct_onchain_transfer'
+  }
+  const paymentStatus: 'paid' | 'failed' = input.paymentStatus === 'failed' ? 'failed' : 'paid'
+  const ok =
+    typeof input.ok === 'boolean' ? input.ok : paymentStatus === 'paid' && (input.error == null || input.error === '')
+  return {
+    index: input.index,
+    mode,
+    endpoint: input.endpoint,
+    ok,
+    paymentStatus,
+    settlementObserved: Boolean(input.settlementObserved),
+    txHash: input.txHash == null || input.txHash === '' ? null : String(input.txHash),
+    explorerUrl: input.explorerUrl == null || input.explorerUrl === '' ? null : String(input.explorerUrl),
+    error: input.error == null || input.error === '' ? null : String(input.error),
+    batchIndex: typeof input.batchIndex === 'number' && Number.isFinite(input.batchIndex) ? input.batchIndex : 1,
+    createdAt: input.createdAt,
+  }
+}
+
 function loadStoredAttempts(): AttemptResult[] {
   const raw = localStorage.getItem(RUNNER_ATTEMPTS_KEY)
   if (!raw) return []
   try {
     const parsed = JSON.parse(raw) as AttemptResult[]
     if (!Array.isArray(parsed)) return []
-    return parsed.filter((row) => row && typeof row.index === 'number' && typeof row.createdAt === 'string')
+    return parsed
+      .filter((row) => row && typeof row.index === 'number' && typeof row.createdAt === 'string')
+      .map((row) => normalizeAttemptRow(row))
+      .filter((row): row is AttemptResult => row !== null)
   } catch {
     return []
   }
@@ -476,6 +510,7 @@ function RunnerGrid({ session }: { session: NhsSession }) {
       batchIndex: row.batchIndex,
       endpoint: row.endpoint,
       mode: row.mode,
+      ok: row.ok,
       paymentStatus: row.paymentStatus,
       settlementObserved: row.settlementObserved,
       txHash: row.txHash,
@@ -534,19 +569,16 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         setRunStatus('Import failed: file must contain an array or { rows: [...] }.')
         return
       }
-      const sanitized = rows.filter(
-        (row) =>
-          row &&
-          typeof row.index === 'number' &&
-          typeof row.createdAt === 'string' &&
-          typeof row.endpoint === 'string',
-      )
+      const sanitized = rows
+        .map((row) => (row && typeof row === 'object' ? normalizeAttemptRow(row as Partial<AttemptResult>) : null))
+        .filter((row): row is AttemptResult => row !== null)
       if (sanitized.length === 0) {
         setRunStatus('Import failed: no valid attempts found in file.')
         return
       }
       setAttempts(sanitized)
       setAttemptPage(1)
+      setViewMode('all')
       setRunStatus(`Imported ${sanitized.length} attempts from ${file.name}.`)
     } catch (error) {
       const message = toUiErrorMessage(error)
@@ -695,7 +727,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
                 Previous
               </button>
               <span className="note" style={{ margin: 0 }}>
-                Page {clampedPage}/{totalPages} · 51 transactions per page · {filteredAttempts.length} shown
+                Page {clampedPage}/{totalPages} · {RUNNER_PAGE_SIZE} per page · {pagedAttempts.length} on this page (
+                {filteredAttempts.length} match filter)
               </span>
               <button
                 type="button"

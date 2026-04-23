@@ -252,6 +252,17 @@ Do not connect real clinical systems or ingest real patient records without appr
 5. **Export both granular and aggregate artifacts.**  
    Use per-attempt JSON (`runner-attempts`) and aggregate summary JSON (`runner-summary`) so judges can validate both request-level and settlement-level claims.
 
+## Session Update (Runner JSON import + export hygiene)
+
+1. **Exports must include every field the UI needs on re-import.**  
+   If `runner-attempts` rows omit boolean `ok`, the UI treats missing values as failure and status badges lie after restore.
+
+2. **Normalize legacy export files on import.**  
+   Older bundles may only encode success via `paymentStatus: "paid"`; rehydrate `ok` and infer `mode` when `endpoint` is an `/api/...` path so Circle x402 runs round-trip cleanly.
+
+3. **Reset the attempts filter after import.**  
+   Operators often leave “Direct on-chain only” selected; importing an x402-only JSON then looks like “0 rows” even though rows loaded. Default the filter back to **all** after a successful import.
+
 ## Session Update (dm+d UI dataset label)
 
 1. **Do not hardcode operator-specific filesystem paths in React.**  

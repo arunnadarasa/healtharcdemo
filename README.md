@@ -161,6 +161,7 @@ Use `/nhs/onchain-runner` for hackathon evidence in two lanes:
 5. For nanopayments mode, explain that successful paid calls can exceed visible on-chain tx count due to batching in Circle Gateway.
 6. **Persistence and recovery:** attempts are saved in the browser; **Clear output** clears the screen only; **Delete stored history** wipes saved attempts; **Import attempts JSON** restores from a prior `runner-attempts-*.json` export.
 7. **Table UX:** filter by mode (all / direct / Circle x402), **51 rows per page**, and date/time column for each attempt. **Status column:** **Tx on-chain** when a transaction hash is present; **Paid (x402)** when the nanopayment call succeeded without a per-request hash (batched settlement); **Failed** otherwise—so judges are not misled when `txHash` is empty in x402 mode.
+8. **Import / export round-trip:** each exported attempt row includes **`ok`** plus the fields above. Imports **normalize** older files that omitted `ok` or only implied success via `paymentStatus`, infer **x402 vs direct** from `mode` or from `endpoint` (`/api/...` → x402 lane). After import, the **transactions view filter resets to “All transaction modes”** so a leftover “Direct only” filter does not hide x402 rows.
 
 ### dm+d local dataset (UI + server)
 
