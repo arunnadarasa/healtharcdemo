@@ -607,6 +607,12 @@ pre {
   border: 1px solid #fde68a;
 }
 
+.tx-badge--paid {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
 .tx-muted {
   color: var(--muted);
 }

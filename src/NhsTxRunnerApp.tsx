@@ -73,6 +73,19 @@ const RUNNER_TARGETS: RunnerTarget[] = [
   },
 ]
 
+function runnerAttemptBadge(row: AttemptResult): { label: string; className: string } {
+  if (!row.ok) {
+    return { label: 'Failed', className: 'tx-badge tx-badge--audit' }
+  }
+  if (row.txHash) {
+    return { label: 'Tx on-chain', className: 'tx-badge tx-badge--chain' }
+  }
+  if (row.mode === 'x402_circle_nanopayments') {
+    return { label: 'Paid (x402)', className: 'tx-badge tx-badge--paid' }
+  }
+  return { label: 'OK', className: 'tx-badge tx-badge--chain' }
+}
+
 function downloadTextFile(fileName: string, content: string) {
   const blob = new Blob([content], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -707,33 +720,45 @@ function RunnerGrid({ session }: { session: NhsSession }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {pagedAttempts.map((row) => (
-                    <tr key={`${row.index}-${row.createdAt}`}>
-                      <td>{row.index}</td>
-                      <td>
-                        <span className={row.ok ? 'tx-badge tx-badge--chain' : 'tx-badge tx-badge--audit'}>
-                          {row.ok ? 'On-chain' : 'Failed'}
-                        </span>
-                      </td>
-                      <td>
-                        <code>{row.endpoint}</code>
-                      </td>
-                      <td title={row.createdAt}>{formatDateTime(row.createdAt)}</td>
-                      <td>
-                        <code>{row.txHash || '—'}</code>
-                      </td>
-                      <td>
-                        {row.explorerUrl ? (
-                          <a href={row.explorerUrl} target="_blank" rel="noreferrer">
-                            View tx
-                          </a>
-                        ) : (
-                          <span className="tx-muted">—</span>
-                        )}
-                      </td>
-                      <td>{row.error || '—'}</td>
-                    </tr>
-                  ))}
+                  {pagedAttempts.map((row) => {
+                    const badge = runnerAttemptBadge(row)
+                    const paidX402NoHash =
+                      row.mode === 'x402_circle_nanopayments' && row.ok && !row.txHash
+                    return (
+                      <tr key={`${row.index}-${row.createdAt}`}>
+                        <td>{row.index}</td>
+                        <td>
+                          <span
+                            className={badge.className}
+                            title={
+                              paidX402NoHash
+                                ? 'Paid API call; per-request tx hash may be absent under batched settlement.'
+                                : undefined
+                            }
+                          >
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td>
+                          <code>{row.endpoint}</code>
+                        </td>
+                        <td title={row.createdAt}>{formatDateTime(row.createdAt)}</td>
+                        <td>
+                          <code>{row.txHash || '—'}</code>
+                        </td>
+                        <td>
+                          {row.explorerUrl ? (
+                            <a href={row.explorerUrl} target="_blank" rel="noreferrer">
+                              View tx
+                            </a>
+                          ) : (
+                            <span className="tx-muted">—</span>
+                          )}
+                        </td>
+                        <td>{row.error || '—'}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

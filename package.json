@@ -14,6 +14,8 @@
     "hes:rebuild-fts": "node scripts/rebuild-hes-fts.mjs",
     "burst:hackathon": "node scripts/hackathon-burst.mjs",
     "snowstorm:up": "docker compose -f docker-compose.snowstorm.yml up -d",
+    "snowstorm:down": "docker compose -f docker-compose.snowstorm.yml down",
+    "snowstorm:poll-import": "node scripts/snowstorm-poll-import.mjs",
     "ehrbase:up": "docker compose -f docker-compose.ehrbase.yml up -d",
     "ehrbase:logs": "docker compose -f docker-compose.ehrbase.yml logs -f ehrbase",
     "evvm:vendor": "node scripts/install-evvm.mjs",

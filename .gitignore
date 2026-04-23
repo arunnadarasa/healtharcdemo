@@ -32,3 +32,6 @@ data/
 # Hardhat / local build artifacts (do not commit)
 artifacts/
 cache/
+
+# Local-only Snowstorm import job scratch (paths/UUIDs); use SNOWSTORM_FULL_RF2_IMPORT.md in repo
+docs/SNOWSTORM_ACTIVE_IMPORT.md

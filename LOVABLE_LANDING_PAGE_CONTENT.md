@@ -93,7 +93,7 @@ One-click license check and starter-license issuance for the active MetaMask or 
 Upload files into CDR vault flows with returned `cid`, `ipfs://` URI, gateway URL, and optional NFT-style metadata token URI.
 
 ### 11) On-Chain Runner + Nanopayment Evidence
-Dual-mode runner for hackathon proof: strict direct on-chain transactions per attempt, plus Circle x402 nanopayment runs with batched-settlement messaging; export, import, and paginated attempt history.
+Dual-mode runner for hackathon proof: **MetaMask-only** direct lane (one explorer hash per attempt) plus Circle x402 nanopayment runs (MetaMask or Circle) with honest batched-settlement messaging. Export, import, and paginated attempt history; status labels **Tx on-chain** vs **Paid (x402)** so paid calls without a per-request hash are not mislabeled as on-chain.
 
 ---
 
@@ -106,7 +106,7 @@ Choose MetaMask or Circle wallet mode and fund USDC on Arc Testnet.
 Use free endpoints for discovery and paid endpoints for premium lookup or summarization (including NHS UK CSV-grounded synthesis), with one-click token-license onboarding in CDR token mode.
 
 **Step 3 - Settle and Verify**  
-x402 handles payment requirements, and transaction history provides proof of paid usage. Use the on-chain runner when you need an explicit multi-tx evidence pack or a side-by-side nanopayment story.
+x402 handles payment requirements, and transaction history provides proof of paid usage. Use the on-chain runner when you need an explicit multi-tx evidence pack (MetaMask direct lane) or a side-by-side Circle x402 nanopayment story—with clear labels when chain hashes are absent per request.
 
 ---
 

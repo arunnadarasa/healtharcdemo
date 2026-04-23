@@ -17,7 +17,7 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 | Criterion | How this repo addresses it |
 |-----------|------------------------------|
 | **≤ $0.01 per paid API action** | x402 gates on neighbourhood + OpenEHR BFF routes use **$0.01** (see `server/neighbourhood/router.js`, `server/openehr/bffRouter.js`). The in-app transaction log shows **Cost (list)** **`$0.01`** for covered endpoints (`NEIGHBOURHOOD_X402_PRICE_DISPLAY` in `src/nhsTxHistory.ts`). |
-| **Volume / on-chain evidence (e.g. 50+ txs)** | Use **`/nhs/onchain-runner`** in dual-mode: **Direct on-chain** for strict tx-per-attempt proof, and **Circle x402 nanopayments** for paid-call logging plus batched-settlement evidence. Recommended run is **5 batches × 10 calls** and exported attempts/summary JSON plus Arcscan checks. |
+| **Volume / on-chain evidence (e.g. 50+ txs)** | Use **`/nhs/onchain-runner`** in dual-mode: **Direct on-chain** (MetaMask only) for strict tx-per-attempt proof, and **Circle x402 nanopayments** for paid-call logging plus batched-settlement evidence. The attempts table labels successes as **Tx on-chain** when a hash exists, or **Paid (x402)** when the paid call succeeded without a per-request hash. Recommended run is **5 batches × 10 calls** and exported attempts/summary JSON plus Arcscan checks. |
 | **Margin & gas narrative** | The neighbourhood UI includes a **margin & gas** section explaining why sub-dollar API pricing is viable on **Arc + x402** versus naive per-transaction gas. |
 | **Track fit (per-API monetization, usage-based compute)** | **Per-request x402** on priced routes (LSOA / insights, OpenEHR BFF, summary, etc.) — HTTP **402** + payment behind the BFF, not a flat subscription. |
 | **Synthetic data & safety** | **Artificial HES** ingestion and demo EHRbase paths only — follow [`OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md`](./OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md) (disclaimer + checklist). |
@@ -73,8 +73,10 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 | `npm run hes:rebuild-fts` | Rebuild **FTS5** index from base HES tables (after legacy ingest) |
 | `npm run burst:hackathon` | 50× unpaid POST smoke (use with `NHS_ENABLE_PAYMENT_GATE=false`) |
 | `npm run snowstorm:up` | Optional [Snowstorm](https://github.com/IHTSDO/snowstorm) + Elasticsearch (`docker-compose.snowstorm.yml`, Snowstorm on **localhost:8081**) |
+| `npm run snowstorm:down` | Stop Snowstorm + Elasticsearch (keeps the named Docker volume / data) |
+| `npm run snowstorm:poll-import -- <uuid>` | Poll `GET /imports/<uuid>` until the RF2 import finishes (see **`docs/SNOWSTORM_FULL_RF2_IMPORT.md`**) |
 
-Set **`SNOWSTORM_URL=http://localhost:8081`** and load a SNOMED CT RF2 release into Snowstorm for FHIR `$lookup` to return concepts ([loading SNOMED](https://github.com/IHTSDO/snowstorm/blob/master/docs/loading-snomed.md)). Public **SNOMED International Browser** still works without Snowstorm.
+Set **`SNOWSTORM_URL=http://localhost:8081`** and load a SNOMED CT RF2 release into Snowstorm for FHIR `$lookup` to return concepts ([loading SNOMED](https://github.com/IHTSDO/snowstorm/blob/master/docs/loading-snomed.md)). **Step-by-step for a full edition before submission:** [`docs/SNOWSTORM_FULL_RF2_IMPORT.md`](./docs/SNOWSTORM_FULL_RF2_IMPORT.md). Public **SNOMED International Browser** still works without Snowstorm.
 
 If the UI shows **`Cannot POST /api/...`**, restart the backend on **8787**. Quick check: **`GET http://localhost:8787/openapi.json`**.
 
@@ -108,7 +110,7 @@ For hackathon capture steps, see **[Hackathon criteria alignment](#hackathon-cri
 | `/nhs/snomed-intelligence` | **SNOMED intelligence** — Snowstorm health/lookup plus paid terminology search and paid summary with x402. |
 | `/nhs/dmd-intelligence` | **dm+d intelligence** — NHSBSA dm+d free search/health and paid lookup/summary x402 flows. |
 | `/nhs/cdr` | **CDR (Confidential Data Rails)** — policy templates, paid vault lifecycle (`allocate`, `encrypt-store`, `request-access`, `recover`, `revoke`), and audit/tx timeline. |
-| `/nhs/onchain-runner` | **On-chain runner** — dual-mode runner: strict direct tx-per-attempt lane and Circle x402 nanopayment lane with batched settlement caveat + exportable evidence JSON. |
+| `/nhs/onchain-runner` | **On-chain runner** — dual-mode runner: **direct** lane (MetaMask, strict tx hash per attempt) and **Circle x402** lane (MetaMask or Circle; batched settlement caveat) + export/import JSON evidence + clear attempt status labels. |
 | **`/`** · **`/nhs`** · **other unmatched paths** | **Hackathon hub** — wallet, links to neighbourhood + HES scale + NHS UK lane + SNOMED + dm+d + CDR + on-chain runner (`src/main.tsx` + `src/hubRoutes.ts`). |
 
 **Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`** (incl. **`/scale/search`**, **`/scale/cross-summary`**, **`/uk/search`**, **`/uk/synthesis`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`/api/cdr/*`** (`/vaults/allocate`, `/vaults/:vaultId/encrypt-store`, `/vaults/:vaultId/request-access`, `/vaults/:vaultId/recover`, `/vaults/:vaultId/revoke`, `/vaults/:vaultId`, `/audit`, `/licenses/check`, `/licenses/issue`), **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
@@ -152,13 +154,13 @@ Returned asset storage now includes:
 
 Use `/nhs/onchain-runner` for hackathon evidence in two lanes:
 
-1. **Direct on-chain transfer mode**: strict tx-per-attempt proof; each successful attempt must return `0x...` hash.
-2. **Circle x402 nanopayments mode**: logs paid request success per attempt while allowing settlement to batch.
+1. **Direct on-chain transfer mode**: strict tx-per-attempt proof; each successful attempt must return `0x...` hash. **Requires MetaMask wallet mode** (uses injected `window.ethereum`); not available when the hub is in **Circle wallet** mode.
+2. **Circle x402 nanopayments mode**: logs paid request success per attempt while allowing settlement to batch. Runs with **MetaMask or Circle** when x402 / Gateway prerequisites are met.
 3. Recommended volume run: **batch size 10** and **batch count 5** (50 total sequential attempts).
 4. Export both artifacts: `runner-attempts-*.json` and `runner-summary-*.json`.
 5. For nanopayments mode, explain that successful paid calls can exceed visible on-chain tx count due to batching in Circle Gateway.
 6. **Persistence and recovery:** attempts are saved in the browser; **Clear output** clears the screen only; **Delete stored history** wipes saved attempts; **Import attempts JSON** restores from a prior `runner-attempts-*.json` export.
-7. **Table UX:** filter by mode (all / direct / Circle x402), **51 rows per page**, and date/time column for each attempt.
+7. **Table UX:** filter by mode (all / direct / Circle x402), **51 rows per page**, and date/time column for each attempt. **Status column:** **Tx on-chain** when a transaction hash is present; **Paid (x402)** when the nanopayment call succeeded without a per-request hash (batched settlement); **Failed** otherwise—so judges are not misled when `txHash` is empty in x402 mode.
 
 ### dm+d local dataset (UI + server)
 

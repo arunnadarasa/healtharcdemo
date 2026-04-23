@@ -58,7 +58,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - dm+d intelligence (free lookup + paid enrichment and paid summary)
 - CDR lane (Confidential Data Rails vault lifecycle demo)
 - CDR onboarding helpers (one-click license check/issue for current Circle/MetaMask wallet)
-- On-chain runner (dual-mode: strict direct tx-per-attempt proof + Circle x402 nanopayment batching narrative, export/import JSON evidence)
+- On-chain runner (dual-mode: **MetaMask-only** direct lane for strict tx-per-attempt hash proof; Circle x402 lane for MetaMask or Circle with batched-settlement narrative; export/import JSON; attempt table uses **Tx on-chain** vs **Paid (x402)** so empty hashes are not misread as on-chain receipts)
 
 ---
 
@@ -111,7 +111,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - Clear distinction between wallet balance and Gateway balance
 - Clear separation of free vs paid output panes for faster operator UX
 - Explicit 403 reason mapping for token-license denials (holder/scope/license state)
-- On-chain runner exports (`runner-attempts`, `runner-summary`) plus import for restoring hackathon evidence packs
+- On-chain runner exports (`runner-attempts`, `runner-summary`) plus import for restoring hackathon evidence packs; UI distinguishes **per-tx chain proof** from **paid x402 success without per-request hash**
 
 ---
 
