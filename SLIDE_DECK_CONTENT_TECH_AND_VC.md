@@ -58,6 +58,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - dm+d intelligence (free lookup + paid enrichment and paid summary)
 - CDR lane (Confidential Data Rails vault lifecycle demo)
 - CDR onboarding helpers (one-click license check/issue for current Circle/MetaMask wallet)
+- On-chain runner (dual-mode: strict direct tx-per-attempt proof + Circle x402 nanopayment batching narrative, export/import JSON evidence)
 
 ---
 
@@ -110,6 +111,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - Clear distinction between wallet balance and Gateway balance
 - Clear separation of free vs paid output panes for faster operator UX
 - Explicit 403 reason mapping for token-license denials (holder/scope/license state)
+- On-chain runner exports (`runner-attempts`, `runner-summary`) plus import for restoring hackathon evidence packs
 
 ---
 
@@ -140,6 +142,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - Verified SNOMED URI usage was correct (`http://snomed.info/sct`), while failures came from content/version state
 - Added dm+d fallback matching (case/query variants) after observing strict upstream exact-match behavior
 - Fixed dm+d `invalid_signature` in MetaMask + Thirdweb by wiring `/api/dmd/*` into facilitator resolution + settlement middleware
+- Replaced hardcoded dm+d “local dataset” UI paths with live `/api/dmd/health` metadata so demos work on any laptop
 - Removed stale inherited input fields (`LSOA`) when moving NHS UK synthesis to CSV-grounded lane
 - Separated infra health checks from terminology-content correctness checks
 - Captured operational evidence through endpoint-level diagnostics and response metadata

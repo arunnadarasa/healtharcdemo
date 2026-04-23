@@ -15,6 +15,16 @@ export type NhsTxItem = {
   paidDisplay?: string
   /** Wallet mode active when the paid call was made */
   walletMode?: WalletMode
+  /** Runner evidence mode when recorded from on-chain runner */
+  runnerMode?: 'direct_onchain_transfer' | 'x402_circle_nanopayments'
+  /** Attempt number in runner execution */
+  attemptIndex?: number
+  /** Batch number in runner execution */
+  batchIndex?: number
+  /** Attempt-level payment state in runner logs */
+  paymentStatus?: 'paid' | 'failed'
+  /** True when a concrete on-chain tx hash was observed for this attempt */
+  settlementObserved?: boolean
 }
 
 const KEY = 'nhs_tx_history_v1'
@@ -123,6 +133,10 @@ export function listNhsTxHistoryCdr(network: NhsNetwork): NhsTxItem[] {
     if (row.network !== network) return false
     return CDR_ENDPOINTS.has(normalizeCdrEndpoint(row.endpoint))
   })
+}
+
+export function listNhsTxHistoryRunner(network: NhsNetwork): NhsTxItem[] {
+  return listNhsTxHistory().filter((row) => row.network === network && typeof row.runnerMode === 'string')
 }
 
 export function explorerUrl(_network: NhsNetwork, txHash: string): string | null {

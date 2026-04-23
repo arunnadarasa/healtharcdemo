@@ -39,6 +39,7 @@ function DmdIntelligenceGrid({
   const [freeOut, setFreeOut] = useState('No free query result yet.')
   const [lookupOut, setLookupOut] = useState('No paid lookup result yet.')
   const [summaryOut, setSummaryOut] = useState('No paid summary result yet.')
+  const [datasetSource, setDatasetSource] = useState('Checking dm+d source…')
 
   const [txRows, setTxRows] = useState<NhsTxItem[]>([])
   const [txModeFilter, setTxModeFilter] = useState<TxModeFilter>('all')
@@ -61,6 +62,33 @@ function DmdIntelligenceGrid({
   useEffect(() => {
     refreshTxLog()
   }, [refreshTxLog])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/dmd/health')
+        const payload = (await res.json().catch(() => ({}))) as
+          | { configured?: boolean; upstream?: string; hint?: string }
+          | Record<string, unknown>
+        if (cancelled) return
+        if (payload && typeof payload.upstream === 'string' && payload.upstream.trim()) {
+          setDatasetSource(payload.upstream.trim())
+          return
+        }
+        if (payload && typeof payload.hint === 'string' && payload.hint.trim()) {
+          setDatasetSource(payload.hint.trim())
+          return
+        }
+        setDatasetSource('Source unavailable.')
+      } catch {
+        if (!cancelled) setDatasetSource('Source unavailable.')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const filteredTxRows = txRows.filter((row) => {
     if (txModeFilter === 'all') return true
@@ -175,8 +203,7 @@ function DmdIntelligenceGrid({
       <article className="card">
         <h2>NHSBSA dm+d (free)</h2>
         <p className="note">
-          Local dataset source: <code>/Users/openclaw/Downloads/nhsbsa_dmd_4.2.0_20260420000001</code>. Use free
-          search to verify API readiness before paid calls.
+          Local dataset source: <code>{datasetSource}</code>. Use free search to verify API readiness before paid calls.
         </p>
         <label>
           Drug query

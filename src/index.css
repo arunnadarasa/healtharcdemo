@@ -354,16 +354,32 @@ button:disabled {
   margin-top: 1.1rem;
   padding-top: 1rem;
   border-top: 1px solid #e2e8f0;
+  display: grid;
+  gap: 0.6rem;
 }
 
 .hub-cta__primary {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
   font-size: 1rem;
   padding: 0.55rem 1rem;
 }
 
+.hub-cta__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hub-cta__link {
+  white-space: nowrap;
+}
+
 .hub-cta__note {
-  margin: 0.65rem 0 0;
+  margin: 0.1rem 0 0;
   font-size: 0.85rem;
 }
 
@@ -696,5 +712,19 @@ button.doc-code-block__copy:focus-visible {
 @media (max-width: 960px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .hub-cta__primary {
+    width: 100%;
+  }
+
+  .hub-cta__links {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hub-cta__link {
+    width: 100%;
+    justify-content: center;
   }
 }

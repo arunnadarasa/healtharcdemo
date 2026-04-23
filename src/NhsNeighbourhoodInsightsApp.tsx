@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import NhsShell from './NhsShell'
 import { apiPost, apiGet } from './nhsApi'
-import { CircleModularPanel } from './components/CircleModularPanel'
 import type { NhsNetwork, NhsRole } from './nhsSession'
 import {
   explorerAddressUrl,
@@ -242,8 +241,6 @@ function NeighbourhoodInsightsGrid({
           interoperability and nanopayment demos only — not validated population health models.
         </p>
       </article>
-
-      <CircleModularPanel />
 
       <article className="card">
         <h2>Service health</h2>

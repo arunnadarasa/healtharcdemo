@@ -39,6 +39,11 @@ export const HUB_ROUTE_GROUPS: HubRouteGroup[] = [
         title: 'CDR (Confidential Data Rails)',
         hint: 'Policy-aware confidential unlock flow + vault lifecycle + Arc USDC x402',
       },
+      {
+        href: '/nhs/onchain-runner',
+        title: 'On-chain runner',
+        hint: 'x1 smoke + sequential x50 strict tx-hash proof flow',
+      },
     ],
   },
 ]

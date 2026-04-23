@@ -214,3 +214,48 @@ Do not connect real clinical systems or ingest real patient records without appr
 
 6. **Env-dependent integrations need immediate operator feedback.**  
    Missing `PINATA_JWT` should fail fast with a direct message so teams know it is configuration, not payload or network failure.
+
+## Session Update (x1/x50 On-chain Runner)
+
+1. **Dedicated proof tooling removes ambiguity.**  
+   A separate `/nhs/onchain-runner` flow is clearer than relying on mixed traffic in feature pages when judges ask for explicit "50+ on-chain tx" evidence.
+
+2. **Gate bulk runs behind a successful smoke test.**  
+   Requiring x1 success before x50 catches wallet/signature/funding issues early and avoids wasting retries.
+
+3. **Separate strict on-chain proof from nanopayment economics.**  
+   Direct wallet transactions give deterministic per-attempt explorer hashes. Circle x402 nanopayment runs should be judged on paid-call success plus batched settlement evidence, not forced 1:1 tx hashes per HTTP call.
+
+4. **Sequential execution is easier to audit than parallel bursts.**  
+   Running one paid call at a time (`await` per attempt) makes logs deterministic and allows exact attempt-to-hash mapping.
+
+5. **Exportable proof artifacts save demo time.**  
+   A local JSON export of attempt index + tx hash + explorer URL gives an immediate handoff artifact for judges and teammates.
+
+6. **Operator-friendly history controls matter.**  
+   Split **clear screen** vs **delete stored history**, add **import attempts JSON** for restoring exports, and paginate large attempt lists so demos stay readable.
+
+## Session Update (Dual-mode Nanopayments Runner)
+
+1. **One runner should demonstrate two truths, not one.**  
+   Keep a strict direct on-chain lane for tx-per-attempt proof, and a Circle x402 lane for nanopayment economics and batched settlement behavior.
+
+2. **Paid-call evidence and settlement evidence must be separated.**  
+   In x402 mode, log each paid request attempt even when no per-request tx hash is returned, then report observed chain settlements separately.
+
+3. **Batch controls make demo evidence repeatable.**  
+   Exposing `batch size` and `batch count` (recommended 10 x 5) provides predictable total volume and reproducible output.
+
+4. **Sequential execution still matters in batch narratives.**  
+   Running requests one-by-one preserves deterministic logs, while settlement can still appear in fewer on-chain transactions.
+
+5. **Export both granular and aggregate artifacts.**  
+   Use per-attempt JSON (`runner-attempts`) and aggregate summary JSON (`runner-summary`) so judges can validate both request-level and settlement-level claims.
+
+## Session Update (dm+d UI dataset label)
+
+1. **Do not hardcode operator-specific filesystem paths in React.**  
+   Showing `/Users/.../Downloads/...` in the UI breaks for every other machine; prefer live server metadata (`/api/dmd/health` upstream URL or configuration hint).
+
+2. **Keep large TRUD extracts out of git.**  
+   Use a gitignored `data/` directory or external volume and document `DMD_SERVICE_URL` in runbooks instead of committing multi-gigabyte drops.

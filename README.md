@@ -2,7 +2,7 @@
 
 > **Workspace:** This repo is the **`agentic-hackathon-arc`** package — develop, commit, and run **`npm run dev`** / **`npm run server`** here. Treat **`Clinical Arc`** (sibling folder under Documents) as **read-only reference** unless you intentionally sync changes back.
 
-**Frontend in this build:** **`/nhs/neighbourhood-insights`** is the **Neighbourhood health plan** (OpenEHR + HES + SNOMED + x402). **`/nhs/hes-scale`** is **HES at scale** — full artificial **AE / OP / APC** in SQLite, **FTS5** search, **x402**-paid queries, **Featherless** cross-dataset summary on aggregates. **`/nhs/uk-dataset-lane`** is the **NHS UK + OpenGPT data lane** — CSV-grounded paid retrieval and paid synthesis with precision controls (`content focus`, `audience`, `context rows`). **`/nhs/snomed-intelligence`** showcases Snowstorm-backed terminology lookups plus paid x402 terminology flows. **`/nhs/dmd-intelligence`** showcases NHSBSA dm+d lookup + paid enrichment/summary patterns. **`/nhs/cdr`** is the **CDR (Confidential Data Rails) lane** — policy-aware vault allocation, encrypt/store, access request, and cooperative recovery using Arc + USDC x402. **`/`**, **`/nhs`**, and unmatched paths render the **hackathon hub**.
+**Frontend in this build:** **`/nhs/neighbourhood-insights`** is the **Neighbourhood health plan** (OpenEHR + HES + SNOMED + x402). **`/nhs/hes-scale`** is **HES at scale** — full artificial **AE / OP / APC** in SQLite, **FTS5** search, **x402**-paid queries, **Featherless** cross-dataset summary on aggregates. **`/nhs/uk-dataset-lane`** is the **NHS UK + OpenGPT data lane** — CSV-grounded paid retrieval and paid synthesis with precision controls (`content focus`, `audience`, `context rows`). **`/nhs/snomed-intelligence`** showcases Snowstorm-backed terminology lookups plus paid x402 terminology flows. **`/nhs/dmd-intelligence`** showcases NHSBSA dm+d lookup + paid enrichment/summary patterns. **`/nhs/cdr`** is the **CDR (Confidential Data Rails) lane** — policy-aware vault allocation, encrypt/store, access request, and cooperative recovery using Arc + USDC x402. **`/nhs/onchain-runner`** is a dedicated dual-mode proof runner with strict direct on-chain evidence and Circle x402 nanopayment batching evidence. **`/`**, **`/nhs`**, and unmatched paths render the **hackathon hub**.
 
 **HealthTech Protocol** is the open **pattern stack** for verifiable payments and care-adjacent flows—**settled on [Arc](https://docs.arc.network/arc/references/connect-to-arc)** with **USDC nanopayments** via [Circle Gateway](https://developers.circle.com/gateway/nanopayments) and **x402** ([overview](https://developers.circle.com/gateway/nanopayments/concepts/x402)). The Express server still carries a broad route surface (NHS, neighbourhood, gateways, etc.); **Treat [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md) as the API / behavior contract** where you wire clients or tests.
 
@@ -17,7 +17,7 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 | Criterion | How this repo addresses it |
 |-----------|------------------------------|
 | **≤ $0.01 per paid API action** | x402 gates on neighbourhood + OpenEHR BFF routes use **$0.01** (see `server/neighbourhood/router.js`, `server/openehr/bffRouter.js`). The in-app transaction log shows **Cost (list)** **`$0.01`** for covered endpoints (`NEIGHBOURHOOD_X402_PRICE_DISPLAY` in `src/nhsTxHistory.ts`). |
-| **Volume / on-chain evidence (e.g. 50+ txs)** | Drive many paid calls from the neighbourhood page; collect **[Arc Testnet](https://testnet.arcscan.app)** history for the demo wallet. **Circle Gateway** can **batch** — N paid HTTP requests are not always N distinct explorer transactions; state that clearly. **Thirdweb** facilitator paths may differ; verify on Arcscan. |
+| **Volume / on-chain evidence (e.g. 50+ txs)** | Use **`/nhs/onchain-runner`** in dual-mode: **Direct on-chain** for strict tx-per-attempt proof, and **Circle x402 nanopayments** for paid-call logging plus batched-settlement evidence. Recommended run is **5 batches × 10 calls** and exported attempts/summary JSON plus Arcscan checks. |
 | **Margin & gas narrative** | The neighbourhood UI includes a **margin & gas** section explaining why sub-dollar API pricing is viable on **Arc + x402** versus naive per-transaction gas. |
 | **Track fit (per-API monetization, usage-based compute)** | **Per-request x402** on priced routes (LSOA / insights, OpenEHR BFF, summary, etc.) — HTTP **402** + payment behind the BFF, not a flat subscription. |
 | **Synthetic data & safety** | **Artificial HES** ingestion and demo EHRbase paths only — follow [`OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md`](./OPENCLAW_CLINICAL_HACKATHON_LEARNINGS.md) (disclaimer + checklist). |
@@ -108,7 +108,8 @@ For hackathon capture steps, see **[Hackathon criteria alignment](#hackathon-cri
 | `/nhs/snomed-intelligence` | **SNOMED intelligence** — Snowstorm health/lookup plus paid terminology search and paid summary with x402. |
 | `/nhs/dmd-intelligence` | **dm+d intelligence** — NHSBSA dm+d free search/health and paid lookup/summary x402 flows. |
 | `/nhs/cdr` | **CDR (Confidential Data Rails)** — policy templates, paid vault lifecycle (`allocate`, `encrypt-store`, `request-access`, `recover`, `revoke`), and audit/tx timeline. |
-| **`/`** · **`/nhs`** · **other unmatched paths** | **Hackathon hub** — wallet, links to neighbourhood + HES scale + NHS UK lane + SNOMED + dm+d + CDR (`src/main.tsx` + `src/hubRoutes.ts`). |
+| `/nhs/onchain-runner` | **On-chain runner** — dual-mode runner: strict direct tx-per-attempt lane and Circle x402 nanopayment lane with batched settlement caveat + exportable evidence JSON. |
+| **`/`** · **`/nhs`** · **other unmatched paths** | **Hackathon hub** — wallet, links to neighbourhood + HES scale + NHS UK lane + SNOMED + dm+d + CDR + on-chain runner (`src/main.tsx` + `src/hubRoutes.ts`). |
 
 **Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`** (incl. **`/scale/search`**, **`/scale/cross-summary`**, **`/uk/search`**, **`/uk/synthesis`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`/api/cdr/*`** (`/vaults/allocate`, `/vaults/:vaultId/encrypt-store`, `/vaults/:vaultId/request-access`, `/vaults/:vaultId/recover`, `/vaults/:vaultId/revoke`, `/vaults/:vaultId`, `/audit`, `/licenses/check`, `/licenses/issue`), **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
 
@@ -146,6 +147,23 @@ Returned asset storage now includes:
 - `ipfsUri`
 - `gatewayUrl`
 - optional metadata (`cid`, `ipfsUri`, `tokenUri`)
+
+### On-chain runner (dual-mode)
+
+Use `/nhs/onchain-runner` for hackathon evidence in two lanes:
+
+1. **Direct on-chain transfer mode**: strict tx-per-attempt proof; each successful attempt must return `0x...` hash.
+2. **Circle x402 nanopayments mode**: logs paid request success per attempt while allowing settlement to batch.
+3. Recommended volume run: **batch size 10** and **batch count 5** (50 total sequential attempts).
+4. Export both artifacts: `runner-attempts-*.json` and `runner-summary-*.json`.
+5. For nanopayments mode, explain that successful paid calls can exceed visible on-chain tx count due to batching in Circle Gateway.
+6. **Persistence and recovery:** attempts are saved in the browser; **Clear output** clears the screen only; **Delete stored history** wipes saved attempts; **Import attempts JSON** restores from a prior `runner-attempts-*.json` export.
+7. **Table UX:** filter by mode (all / direct / Circle x402), **51 rows per page**, and date/time column for each attempt.
+
+### dm+d local dataset (UI + server)
+
+- The **dm+d intelligence** page shows the active upstream from **`GET /api/dmd/health`** (when `DMD_SERVICE_URL` is set, the UI displays that base URL; otherwise it shows the server hint).
+- Point `DMD_SERVICE_URL` at a running [wardle/dmd](https://github.com/wardle/dmd)-compatible service (for example `http://localhost:8082`). Large TRUD extracts are typically kept under repo **`data/`** (gitignored); keep paths in `.env` or local docs, not committed blobs.
 
 ## Quick start
 

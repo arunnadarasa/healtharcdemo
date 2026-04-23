@@ -1,6 +1,15 @@
 import NhsShell from './NhsShell'
 
 export default function NhsHubApp() {
+  const quickLinks = [
+    { href: '/nhs/hes-scale', label: 'HES at scale (full data)' },
+    { href: '/nhs/snomed-intelligence', label: 'SNOMED intelligence' },
+    { href: '/nhs/dmd-intelligence', label: 'dm+d intelligence' },
+    { href: '/nhs/uk-dataset-lane', label: 'NHS UK dataset lane' },
+    { href: '/nhs/cdr', label: 'CDR (Confidential Data Rails)' },
+    { href: '/nhs/onchain-runner', label: 'On-chain runner (x1/x50)' },
+  ]
+
   return (
     <NhsShell
       title="Agentic Hackathon Arc"
@@ -27,15 +36,13 @@ export default function NhsHubApp() {
               <a className="button-like hub-cta__primary" href="/nhs/neighbourhood-insights">
                 Go to neighbourhood health plan →
               </a>
-              <a className="button-like secondary" href="/nhs/hes-scale" style={{ marginLeft: '0.5rem' }}>
-                HES at scale (full data) →
-              </a>
-              <a className="button-like secondary" href="/nhs/snomed-intelligence" style={{ marginLeft: '0.5rem' }}>
-                SNOMED intelligence →
-              </a>
-              <a className="button-like secondary" href="/nhs/dmd-intelligence" style={{ marginLeft: '0.5rem' }}>
-                dm+d intelligence →
-              </a>
+              <div className="hub-cta__links" aria-label="Quick links">
+                {quickLinks.map((link) => (
+                  <a key={link.href} className="button-like secondary hub-cta__link" href={link.href}>
+                    {link.label} →
+                  </a>
+                ))}
+              </div>
               <p className="note hub-cta__note">Paid actions need a connected wallet and USDC on Arc testnet.</p>
             </div>
 

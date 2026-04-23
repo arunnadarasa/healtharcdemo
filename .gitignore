@@ -28,3 +28,7 @@ dist-ssr
 *.sw?
 data/
 *.sqlite
+
+# Hardhat / local build artifacts (do not commit)
+artifacts/
+cache/

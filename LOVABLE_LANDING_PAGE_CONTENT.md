@@ -30,7 +30,7 @@ Explore the Demo
 View GitHub
 
 **Trust strip (short):**  
-OpenEHR + SNOMED CT + NHSBSA dm+d + NHS UK OpenGPT lane + Arc + x402
+OpenEHR + SNOMED CT + NHSBSA dm+d + NHS UK OpenGPT lane + CDR + on-chain runner + Arc + x402
 
 ---
 
@@ -92,6 +92,9 @@ One-click license check and starter-license issuance for the active MetaMask or 
 ### 10) Pinata + IPFS File Storage
 Upload files into CDR vault flows with returned `cid`, `ipfs://` URI, gateway URL, and optional NFT-style metadata token URI.
 
+### 11) On-Chain Runner + Nanopayment Evidence
+Dual-mode runner for hackathon proof: strict direct on-chain transactions per attempt, plus Circle x402 nanopayment runs with batched-settlement messaging; export, import, and paginated attempt history.
+
 ---
 
 ## How It Works (3 Steps)
@@ -103,7 +106,7 @@ Choose MetaMask or Circle wallet mode and fund USDC on Arc Testnet.
 Use free endpoints for discovery and paid endpoints for premium lookup or summarization (including NHS UK CSV-grounded synthesis), with one-click token-license onboarding in CDR token mode.
 
 **Step 3 - Settle and Verify**  
-x402 handles payment requirements, and transaction history provides proof of paid usage.
+x402 handles payment requirements, and transaction history provides proof of paid usage. Use the on-chain runner when you need an explicit multi-tx evidence pack or a side-by-side nanopayment story.
 
 ---
 
@@ -131,10 +134,11 @@ Open reference implementation, not slideware.
 Clinical Arc is implemented as a working React + Node/Express stack with live routes, reproducible payment flows, and integration-ready endpoints. Teams can fork, adapt, and launch quickly.
 
 **Optional metrics row (replace with real numbers):**
-- 4+ intelligence surfaces
+- 5+ intelligence surfaces
 - 2 wallet modes
 - $0.01 paid action baseline in demo flows
 - End-to-end x402 payment gating
+- Exportable on-chain runner evidence (JSON)
 
 ---
 
@@ -148,6 +152,7 @@ Clinical Arc is validated with live service checks, not only static screenshots.
 
 **Proof bullets:**
 - SNOMED health checks verify service reachability before terminology calls
+- dm+d intelligence surfaces the live upstream from `/api/dmd/health` instead of hardcoded local paths
 - dm+d integration includes fallback query variants to reduce strict-match failures
 - API responses expose attempted and matched queries for transparent troubleshooting
 - Operational runbooks separate “service up” from “correct terminology edition loaded”
