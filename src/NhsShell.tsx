@@ -56,6 +56,7 @@ const PATH_CONTEXT: Record<string, string> = {
   '/nhs/snomed-intelligence': 'SNOMED intelligence',
   '/nhs/dmd-intelligence': 'dm+d intelligence',
   '/nhs/uk-dataset-lane': 'NHS UK dataset lane',
+  '/nhs/cdr': 'CDR (Confidential Data Rails)',
 }
 
 function whereYouAre(pathname: string): string {
@@ -576,6 +577,9 @@ export default function NhsShell({ title, subtitle, children }: Props) {
             </a>
             <a className={navLinkClass('/nhs/uk-dataset-lane', pathname)} href="/nhs/uk-dataset-lane">
               NHS UK dataset lane
+            </a>
+            <a className={navLinkClass('/nhs/cdr', pathname)} href="/nhs/cdr">
+              CDR (Confidential Data Rails)
             </a>
           </div>
 

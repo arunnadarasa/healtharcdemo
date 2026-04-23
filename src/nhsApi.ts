@@ -31,6 +31,22 @@ function errorFromResponse(
   const status = res.status
   if (payload && typeof payload === 'object') {
     const o = payload as Record<string, unknown>
+    if (status === 403) {
+      const reason = typeof o.reason === 'string' ? o.reason.trim() : ''
+      const authStatus = typeof o.authorizationStatus === 'string' ? o.authorizationStatus.trim() : ''
+      if (reason) {
+        if (reason === 'requester_not_holder') {
+          return 'Access denied: requester wallet does not hold the required license.'
+        }
+        if (reason === 'scope_mismatch') {
+          return 'Access denied: required scope does not match the issued license.'
+        }
+        if (reason === 'license_missing') {
+          return 'Access denied: no matching license found for this wallet.'
+        }
+        return authStatus ? `Access denied (${authStatus}): ${reason}` : `Access denied: ${reason}`
+      }
+    }
     // Thirdweb x402 settlement failures often return { error, errorMessage, fundWalletLink }
     if (status === 402) {
       const em = o.errorMessage
@@ -167,17 +183,11 @@ function txFromResponse(payload: unknown, res: Response): string | null {
     .map((k) => res.headers.get(k) || '')
     .filter((v) => typeof v === 'string' && v.trim().length > 0)
 
-  const payloadString = (() => {
-    try {
-      return JSON.stringify(payload ?? {})
-    } catch {
-      return ''
-    }
-  })()
-  const merged = [...headerValues, payloadString].join(' ')
-
-  const fromMerged = extractTxHash(merged)
-  if (fromMerged) return fromMerged
+  // Some facilitator headers may contain the tx hash as a raw string.
+  for (const candidate of headerValues) {
+    const tx = extractTxHash(candidate.trim())
+    if (tx) return tx
+  }
 
   // Fallback: parse structured header payloads and inspect nested objects.
   for (const candidate of headerValues) {

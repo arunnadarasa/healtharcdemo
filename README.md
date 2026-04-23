@@ -2,7 +2,7 @@
 
 > **Workspace:** This repo is the **`agentic-hackathon-arc`** package — develop, commit, and run **`npm run dev`** / **`npm run server`** here. Treat **`Clinical Arc`** (sibling folder under Documents) as **read-only reference** unless you intentionally sync changes back.
 
-**Frontend in this build:** **`/nhs/neighbourhood-insights`** is the **Neighbourhood health plan** (OpenEHR + HES + SNOMED + x402). **`/nhs/hes-scale`** is **HES at scale** — full artificial **AE / OP / APC** in SQLite, **FTS5** search, **x402**-paid queries, **Featherless** cross-dataset summary on aggregates. **`/nhs/uk-dataset-lane`** is the **NHS UK + OpenGPT data lane** — CSV-grounded paid retrieval and paid synthesis with precision controls (`content focus`, `audience`, `context rows`). **`/nhs/snomed-intelligence`** showcases Snowstorm-backed terminology lookups plus paid x402 terminology flows. **`/nhs/dmd-intelligence`** showcases NHSBSA dm+d lookup + paid enrichment/summary patterns. **`/`**, **`/nhs`**, and unmatched paths render the **hackathon hub**.
+**Frontend in this build:** **`/nhs/neighbourhood-insights`** is the **Neighbourhood health plan** (OpenEHR + HES + SNOMED + x402). **`/nhs/hes-scale`** is **HES at scale** — full artificial **AE / OP / APC** in SQLite, **FTS5** search, **x402**-paid queries, **Featherless** cross-dataset summary on aggregates. **`/nhs/uk-dataset-lane`** is the **NHS UK + OpenGPT data lane** — CSV-grounded paid retrieval and paid synthesis with precision controls (`content focus`, `audience`, `context rows`). **`/nhs/snomed-intelligence`** showcases Snowstorm-backed terminology lookups plus paid x402 terminology flows. **`/nhs/dmd-intelligence`** showcases NHSBSA dm+d lookup + paid enrichment/summary patterns. **`/nhs/cdr`** is the **CDR (Confidential Data Rails) lane** — policy-aware vault allocation, encrypt/store, access request, and cooperative recovery using Arc + USDC x402. **`/`**, **`/nhs`**, and unmatched paths render the **hackathon hub**.
 
 **HealthTech Protocol** is the open **pattern stack** for verifiable payments and care-adjacent flows—**settled on [Arc](https://docs.arc.network/arc/references/connect-to-arc)** with **USDC nanopayments** via [Circle Gateway](https://developers.circle.com/gateway/nanopayments) and **x402** ([overview](https://developers.circle.com/gateway/nanopayments/concepts/x402)). The Express server still carries a broad route surface (NHS, neighbourhood, gateways, etc.); **Treat [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md) as the API / behavior contract** where you wire clients or tests.
 
@@ -42,7 +42,8 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 | **NHS UK dataset lane (`/nhs/uk-dataset-lane`)** | OpenGPT-style NHS UK CSV lane with **paid retrieval** (**`/api/neighbourhood/uk/search`**) and **paid synthesis** (**`/api/neighbourhood/uk/synthesis`**) grounded on selected dataset rows; includes precision controls for focused output. |
 | **SNOMED intelligence (`/nhs/snomed-intelligence`)** | Snowstorm + SNOMED CT demo with free health/lookup checks and paid terminology search/summary routes using x402. |
 | **dm+d intelligence (`/nhs/dmd-intelligence`)** | NHSBSA dm+d demo with free search/health checks and paid `lookup` + `summary` endpoints via x402. |
-| **Backend (`server/`)** | Express: **`/api/nhs/*`**, **`/api/neighbourhood/*`** (includes **`/scale/*`** + **`/uk/*`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`POST /api/circle-modular`**, plus many optional gateway routes — see **`GET /openapi.json`**. |
+| **CDR lane (`/nhs/cdr`)** | Story-inspired confidential data rails demo: **paid** vault allocation, **paid** encrypt/store, **paid** access + recovery lifecycle, plus audit log views. |
+| **Backend (`server/`)** | Express: **`/api/nhs/*`**, **`/api/neighbourhood/*`** (includes **`/scale/*`** + **`/uk/*`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`/api/cdr/*`**, **`POST /api/circle-modular`**, plus many optional gateway routes — see **`GET /openapi.json`**. |
 
 **Artificial HES (full data):** CSVs are published by **[NHS Digital — Artificial data](https://digital.nhs.uk/services/artificial-data)** (synthetic administrative / hospital episode–style datasets for non-production use). Download the release you need, then point ingest env vars at the extracted folders. **`npm run ingest:hes`** uses **`HES_AE_DIR`**, **`HES_OP_DIR`**, **`HES_APC_DIR`** (or legacy **`HES_SAMPLE_DIR`** for AE-only). Optional **`HES_ROW_LIMIT_PER_FILE`**, **`HES_CLEAR_FIRST=1`**, **`HES_INGEST_BATCH`**. Large CSVs use **streaming** (no full-file RAM). If you loaded data before FTS existed, run **`npm run hes:rebuild-fts`**. Follow the **NHS Digital** licence terms for that service; this app treats ingested rows as **demo / non-clinical** only.
 
@@ -106,9 +107,45 @@ For hackathon capture steps, see **[Hackathon criteria alignment](#hackathon-cri
 | `/nhs/uk-dataset-lane` | **NHS UK + OpenGPT data lane** — **paid** CSV retrieval + **paid** CSV-grounded synthesis with `content focus`, `audience`, and `context rows`. |
 | `/nhs/snomed-intelligence` | **SNOMED intelligence** — Snowstorm health/lookup plus paid terminology search and paid summary with x402. |
 | `/nhs/dmd-intelligence` | **dm+d intelligence** — NHSBSA dm+d free search/health and paid lookup/summary x402 flows. |
-| **`/`** · **`/nhs`** · **other unmatched paths** | **Hackathon hub** — wallet, links to neighbourhood + HES scale + NHS UK lane + SNOMED + dm+d (`src/main.tsx` + `src/hubRoutes.ts`). |
+| `/nhs/cdr` | **CDR (Confidential Data Rails)** — policy templates, paid vault lifecycle (`allocate`, `encrypt-store`, `request-access`, `recover`, `revoke`), and audit/tx timeline. |
+| **`/`** · **`/nhs`** · **other unmatched paths** | **Hackathon hub** — wallet, links to neighbourhood + HES scale + NHS UK lane + SNOMED + dm+d + CDR (`src/main.tsx` + `src/hubRoutes.ts`). |
 
-**Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`** (incl. **`/scale/search`**, **`/scale/cross-summary`**, **`/uk/search`**, **`/uk/synthesis`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
+**Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`** (incl. **`/scale/search`**, **`/scale/cross-summary`**, **`/uk/search`**, **`/uk/synthesis`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`/api/cdr/*`** (`/vaults/allocate`, `/vaults/:vaultId/encrypt-store`, `/vaults/:vaultId/request-access`, `/vaults/:vaultId/recover`, `/vaults/:vaultId/revoke`, `/vaults/:vaultId`, `/audit`, `/licenses/check`, `/licenses/issue`), **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
+
+### CDR token/license contract (Arc testnet)
+
+CDR `policyMode=token` is backed by an on-chain `LicenseCondition` contract on Arc testnet.
+
+1. Configure env:
+   - `ARC_RPC_URL` (Arc testnet RPC)
+   - `DEPLOYER_PRIVATE_KEY` (deployer wallet)
+2. Compile and deploy:
+   - `npm run compile:contracts`
+   - `npm run deploy:license:arc`
+3. Seed a test license (optional):
+   - `LICENSE_CONDITION_ADDRESS=0x... LICENSE_HOLDER_ADDRESS=0x... npm run seed:license:arc`
+4. In `/nhs/cdr`, choose **Token / licence gate** and provide:
+   - contract address
+   - license id
+   - optional required scope
+   - or use **`Issue starter license (current wallet)`** to auto-issue for Circle/MetaMask mode and auto-fill `license id`.
+
+For token mode, access/recovery now returns explicit authorization outcomes:
+`license_missing`, `license_expired`, `license_revoked`, `requester_not_holder`, `scope_mismatch`.
+
+### CDR file uploads (Pinata/IPFS)
+
+`/nhs/cdr` now supports file uploads in `encrypt-store`:
+
+1. Set **Payload mode** to **Upload file (Pinata IPFS)**.
+2. Provide `PINATA_JWT` in server `.env`.
+3. Optional: enable **NFT-style metadata** generation for token URI-compatible JSON on IPFS.
+
+Returned asset storage now includes:
+- `cid`
+- `ipfsUri`
+- `gatewayUrl`
+- optional metadata (`cid`, `ipfsUri`, `tokenUri`)
 
 ## Quick start
 

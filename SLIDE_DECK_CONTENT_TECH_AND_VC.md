@@ -56,6 +56,8 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - NHS UK dataset lane (CSV-grounded retrieval + synthesis with precision controls)
 - SNOMED intelligence (lookup, indexed search, summary)
 - dm+d intelligence (free lookup + paid enrichment and paid summary)
+- CDR lane (Confidential Data Rails vault lifecycle demo)
+- CDR onboarding helpers (one-click license check/issue for current Circle/MetaMask wallet)
 
 ---
 
@@ -107,10 +109,22 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - Explorer links for chain evidence when available
 - Clear distinction between wallet balance and Gateway balance
 - Clear separation of free vs paid output panes for faster operator UX
+- Explicit 403 reason mapping for token-license denials (holder/scope/license state)
 
 ---
 
-### Slide 11 - Integration Strategy
+### Slide 11 - CDR + IPFS Extension
+**Title:** Confidential files with Pinata-backed IPFS storage  
+**Bullets:**
+- `encrypt-store` supports plaintext and file-upload payload modes
+- File uploads pin to IPFS via Pinata with `cid`, `ipfsUri`, and gateway URL
+- Optional NFT-style metadata JSON generates token URI-compatible objects
+- UI renders clickable `gatewayUrl`, `ipfs://`, and `tokenUri` links
+- Keeps x402 paid lifecycle while adding interoperable data pointers
+
+---
+
+### Slide 12 - Integration Strategy
 **Title:** Build fast, swap components safely  
 **Bullets:**
 - Route-based modular architecture for new intelligence domains
@@ -120,7 +134,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 
 ---
 
-### Slide 12 - Runtime Debug Learnings
+### Slide 13 - Runtime Debug Learnings
 **Title:** Runtime evidence changed our implementation decisions  
 **Bullets:**
 - Verified SNOMED URI usage was correct (`http://snomed.info/sct`), while failures came from content/version state
@@ -132,7 +146,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 
 ---
 
-### Slide 13 - Technical Close
+### Slide 14 - Technical Close
 **Title:** What teams can do next  
 **Bullets:**
 - Fork and customize route surfaces for your datasets
@@ -249,6 +263,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - Corrected cross-route payment wiring issues quickly from live evidence (not assumptions)
 - Reduced demo and pilot risk by proving recovery paths, not only happy paths
 - Demonstrated ability to ship fixes quickly from evidence, not assumptions
+- Added wallet-aware license issuance path to unblock first-run Circle wallet users
 
 ---
 

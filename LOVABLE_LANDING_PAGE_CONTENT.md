@@ -80,8 +80,17 @@ Choose Circle Gateway x402 or thirdweb facilitator paths based on your wallet mo
 ### 6) Wallet UX Built In
 Support for MetaMask and Circle wallet flows, including Gateway top-up support and balance visibility.
 
-### 7) Verifiable Activity
+### 7) CDR (Confidential Data Rails) Lane
+Story-inspired confidential vault lifecycle with paid allocate, encrypt/store, request-access, and cooperative recovery flows.
+
+### 8) Verifiable Activity
 Page-level transaction logs make it easy to show payment events, references, and explorer links.
+
+### 9) Wallet-Aware License Onboarding
+One-click license check and starter-license issuance for the active MetaMask or Circle wallet in token policy mode.
+
+### 10) Pinata + IPFS File Storage
+Upload files into CDR vault flows with returned `cid`, `ipfs://` URI, gateway URL, and optional NFT-style metadata token URI.
 
 ---
 
@@ -91,7 +100,7 @@ Page-level transaction logs make it easy to show payment events, references, and
 Choose MetaMask or Circle wallet mode and fund USDC on Arc Testnet.
 
 **Step 2 - Run Intelligence Calls**  
-Use free endpoints for discovery and paid endpoints for premium lookup or summarization (including NHS UK CSV-grounded synthesis).
+Use free endpoints for discovery and paid endpoints for premium lookup or summarization (including NHS UK CSV-grounded synthesis), with one-click token-license onboarding in CDR token mode.
 
 **Step 3 - Settle and Verify**  
 x402 handles payment requirements, and transaction history provides proof of paid usage.
@@ -161,6 +170,8 @@ In practice, terminology and payment systems fail in nuanced ways. We documented
 - Distinguishing wallet balance from Gateway balance avoids false payment debugging trails
 - Keeping synthesis and retrieval on the same NHS UK dataset lane avoids data-source mismatch confusion
 - Moving paid results directly under paid action panels reduces operator scrolling and support friction
+- Circle wallet authorization failures are usually holder-specific license mismatches, not payment failures
+- Returning both gateway and `ipfs://` links improves downstream smart-contract metadata interoperability
 
 ---
 

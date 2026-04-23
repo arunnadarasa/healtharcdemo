@@ -32,6 +32,7 @@ import { createNeighbourhoodRouter } from './neighbourhood/router.js'
 import { createOpenehrBffRouter } from './openehr/bffRouter.js'
 import {
   createNeighbourhoodThirdwebPaymentMiddleware,
+  createCdrThirdwebPaymentMiddleware,
   createDmdThirdwebPaymentMiddleware,
   createOpenehrThirdwebPaymentMiddleware,
   isThirdwebSettlementConfigured,
@@ -39,6 +40,7 @@ import {
 import { resolveNhsX402Facilitator } from './x402FacilitatorContext.js'
 import { createSnomedRouter } from './snomed/router.js'
 import { createDmdRouter } from './dmd/router.js'
+import { createCdrRouter } from './cdr/router.js'
 
 const app = express()
 /** So `req.protocol` / forwarded headers match the browser origin when Vite proxies (localhost:5173 → 8787). */
@@ -431,6 +433,7 @@ if (nhsPaymentGateEnabled && thirdwebSettlementReady) {
   app.use('/api/neighbourhood', createNeighbourhoodThirdwebPaymentMiddleware())
   app.use('/api/openehr', createOpenehrThirdwebPaymentMiddleware())
   app.use('/api/dmd', createDmdThirdwebPaymentMiddleware())
+  app.use('/api/cdr', createCdrThirdwebPaymentMiddleware())
 }
 
 app.use(
@@ -461,6 +464,13 @@ app.use('/api/snomed', createSnomedRouter())
 app.use(
   '/api/dmd',
   createDmdRouter({
+    gateway: arcGateway,
+    skipInternalGateway: (req) => req.nhsX402Facilitator === 'thirdweb',
+  }),
+)
+app.use(
+  '/api/cdr',
+  createCdrRouter({
     gateway: arcGateway,
     skipInternalGateway: (req) => req.nhsX402Facilitator === 'thirdweb',
   }),

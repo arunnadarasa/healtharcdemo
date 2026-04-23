@@ -76,6 +76,21 @@ const HES_SCALE_ENDPOINTS = new Set([
 ])
 
 const DMD_ENDPOINTS = new Set(['/api/dmd/lookup', '/api/dmd/summary'])
+const CDR_ENDPOINTS = new Set([
+  '/api/cdr/vaults/allocate',
+  '/api/cdr/vaults/:vaultId/encrypt-store',
+  '/api/cdr/vaults/:vaultId/request-access',
+  '/api/cdr/vaults/:vaultId/recover',
+  '/api/cdr/vaults/:vaultId/revoke',
+])
+
+function normalizeCdrEndpoint(endpoint: string): string {
+  if (/^\/api\/cdr\/vaults\/[^/]+\/encrypt-store$/.test(endpoint)) return '/api/cdr/vaults/:vaultId/encrypt-store'
+  if (/^\/api\/cdr\/vaults\/[^/]+\/request-access$/.test(endpoint)) return '/api/cdr/vaults/:vaultId/request-access'
+  if (/^\/api\/cdr\/vaults\/[^/]+\/recover$/.test(endpoint)) return '/api/cdr/vaults/:vaultId/recover'
+  if (/^\/api\/cdr\/vaults\/[^/]+\/revoke$/.test(endpoint)) return '/api/cdr/vaults/:vaultId/revoke'
+  return endpoint
+}
 
 /** Server gate price for those routes (`server/neighbourhood/router.js`, `server/openehr/bffRouter.js`). */
 export const NEIGHBOURHOOD_X402_PRICE_DISPLAY = '$0.01'
@@ -83,6 +98,7 @@ export const NEIGHBOURHOOD_X402_PRICE_DISPLAY = '$0.01'
 export function paidDisplayForNeighbourhoodEndpoint(endpoint: string): string | undefined {
   if (NEIGHBOURHOOD_PAID_ENDPOINTS.has(endpoint)) return NEIGHBOURHOOD_X402_PRICE_DISPLAY
   if (DMD_ENDPOINTS.has(endpoint)) return NEIGHBOURHOOD_X402_PRICE_DISPLAY
+  if (CDR_ENDPOINTS.has(normalizeCdrEndpoint(endpoint))) return NEIGHBOURHOOD_X402_PRICE_DISPLAY
   return undefined
 }
 
@@ -100,6 +116,13 @@ export function listNhsTxHistoryHesScale(network: NhsNetwork): NhsTxItem[] {
 
 export function listNhsTxHistoryDmd(network: NhsNetwork): NhsTxItem[] {
   return listNhsTxHistory().filter((row) => row.network === network && DMD_ENDPOINTS.has(row.endpoint))
+}
+
+export function listNhsTxHistoryCdr(network: NhsNetwork): NhsTxItem[] {
+  return listNhsTxHistory().filter((row) => {
+    if (row.network !== network) return false
+    return CDR_ENDPOINTS.has(normalizeCdrEndpoint(row.endpoint))
+  })
 }
 
 export function explorerUrl(_network: NhsNetwork, txHash: string): string | null {

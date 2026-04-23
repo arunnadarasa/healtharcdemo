@@ -221,3 +221,44 @@ export function createDmdThirdwebPaymentMiddleware() {
     return next()
   }
 }
+
+export function createCdrThirdwebPaymentMiddleware() {
+  if (!isThirdwebSettlementConfigured()) {
+    return (_req, _res, next) => next()
+  }
+  return async (req, res, next) => {
+    if (req.nhsX402Facilitator !== 'thirdweb') return next()
+    if (req.method !== 'POST') return next()
+    if (req.path === '/vaults/allocate') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'CDR vault allocation (demo)',
+      })
+    }
+    if (req.path.endsWith('/encrypt-store')) {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'CDR encrypt + store payload (demo)',
+      })
+    }
+    if (req.path.endsWith('/request-access')) {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'CDR access request (demo)',
+      })
+    }
+    if (req.path.endsWith('/recover')) {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'CDR cooperative recovery (demo)',
+      })
+    }
+    if (req.path.endsWith('/revoke')) {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'CDR vault revoke (demo)',
+      })
+    }
+    return next()
+  }
+}

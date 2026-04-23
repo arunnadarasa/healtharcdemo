@@ -160,3 +160,57 @@ Do not connect real clinical systems or ingest real patient records without appr
 
 11. **Place paid outputs beside paid actions for better operator UX.**  
    Users expect paid lookup results directly under the paid lookup card; splitting free and paid output panes reduces scrolling and avoids confusion about which action produced which response.
+
+## Session Update (CDR Rollout: Arc + USDC)
+
+1. **Route discovery must be updated in three places, not one.**  
+   Adding a new NHS feature lane required synchronized updates in `src/main.tsx` routing, `src/hubRoutes.ts` hub cards, and `src/NhsShell.tsx` top navigation/context labels.
+
+2. **Keep CDR lifecycle deterministic first, then integrate real cryptography later.**  
+   A mocked in-memory backend (`/api/cdr`) with explicit state transitions (`allocated -> sealed -> access_pending -> recovered/revoked`) provided reliable UX and testability before Story/CDR SDK integration.
+
+3. **Payment alignment for new route families must happen on both resolver and settlement layers.**  
+   CDR paid endpoints needed explicit inclusion in `server/x402FacilitatorContext.js` and `server/thirdwebX402.js` to avoid the same facilitator mismatch class previously seen on dm+d routes.
+
+4. **Treat variable route segments as endpoint families in tx history.**  
+   Client transaction logs should normalize dynamic paths (`/api/cdr/vaults/:vaultId/...`) so paginated logs and cost labels remain accurate regardless of generated vault IDs.
+
+5. **OpenAPI discoverability reduces integration drift.**  
+   Declaring all CDR lifecycle endpoints in `server/openapi.mjs` keeps `/openapi.json` aligned with the runnable API and makes agent/service discovery easier during demos.
+
+## Session Update (CDR Token/License Contract on Arc)
+
+1. **Token policy mode needs contract checks, not labels.**  
+   Keeping `policyMode=token` as a string-only marker is not sufficient. Adding an Arc testnet `LicenseCondition` contract made access decisions deterministic and auditable.
+
+2. **Separate payment settlement from authorization outcomes.**  
+   A paid request can still be denied by policy. We now return explicit authorization reasons (`license_missing`, `license_expired`, `license_revoked`, `requester_not_holder`, `scope_mismatch`) so operators can debug without conflating x402 and policy errors.
+
+3. **Defense-in-depth on both access and recovery steps.**  
+   Re-checking token authorization during `recover` (not only `request-access`) protects against stale approvals and license revocation timing gaps.
+
+4. **Structured token payloads beat generic condition refs.**  
+   Upgrading UI payloads from free-text `conditionRef` to `{contractAddress, licenseId, requiredScope}` reduced operator error and made backend validation straightforward.
+
+5. **Hardhat bootstrap is enough for Arc testnet experimentation.**  
+   Minimal `hardhat` + deploy/seed scripts provided fast contract iteration without introducing a second repository.
+
+## Session Update (Circle wallet onboarding + Pinata IPFS)
+
+1. **Circle wallet and MetaMask need wallet-specific licenses.**  
+   License authorization is holder-specific. A license issued to MetaMask will not automatically authorize Circle wallet mode.
+
+2. **One-click license issuance removes onboarding friction.**  
+   Adding CDR endpoints (`/api/cdr/licenses/check`, `/api/cdr/licenses/issue`) plus UI buttons made it easy for new users to self-check and issue starter licenses for the active wallet.
+
+3. **Surface explicit authorization reasons in UI.**  
+   Showing `requester_not_holder`, `license_missing`, and `scope_mismatch` style messages in human-readable form reduced debugging time significantly.
+
+4. **File uploads should support both gateway and native IPFS URIs.**  
+   Returning `gatewayUrl` and `ipfs://` URIs for file and metadata objects makes downstream smart-contract/token-metadata integration easier.
+
+5. **NFT-style metadata is useful even in non-NFT demos.**  
+   Optional token URI-compatible metadata JSON on Pinata gives interoperability with wallet/indexer tooling without changing the core CDR model.
+
+6. **Env-dependent integrations need immediate operator feedback.**  
+   Missing `PINATA_JWT` should fail fast with a direct message so teams know it is configuration, not payload or network failure.

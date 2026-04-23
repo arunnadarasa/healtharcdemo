@@ -217,6 +217,72 @@ export function buildOpenApiDocument(req) {
           responses: { 200: { description: 'FHIR Parameters' }, 400: { description: 'Bad id' }, 502: { description: 'Upstream error' } },
         },
       },
+      '/api/cdr/vaults/allocate': {
+        post: {
+          operationId: 'cdrVaultAllocate',
+          summary: 'Paid CDR vault allocation (demo lifecycle)',
+          tags: ['CDR'],
+          'x-payment-info': { pricingMode: 'fixed', minPrice: '0.010000', maxPrice: '0.010000', protocols: ['x402'] },
+          responses: { 201: { description: 'Allocated' }, 402: { description: 'Payment Required' } },
+        },
+      },
+      '/api/cdr/vaults/{vaultId}/encrypt-store': {
+        post: {
+          operationId: 'cdrVaultEncryptStore',
+          summary: 'Paid encrypt/store payload into CDR vault (demo)',
+          tags: ['CDR'],
+          parameters: [{ name: 'vaultId', in: 'path', required: true, schema: { type: 'string' } }],
+          'x-payment-info': { pricingMode: 'fixed', minPrice: '0.010000', maxPrice: '0.010000', protocols: ['x402'] },
+          responses: { 201: { description: 'Stored' }, 402: { description: 'Payment Required' } },
+        },
+      },
+      '/api/cdr/vaults/{vaultId}/request-access': {
+        post: {
+          operationId: 'cdrVaultRequestAccess',
+          summary: 'Paid access request for CDR vault (demo)',
+          tags: ['CDR'],
+          parameters: [{ name: 'vaultId', in: 'path', required: true, schema: { type: 'string' } }],
+          'x-payment-info': { pricingMode: 'fixed', minPrice: '0.010000', maxPrice: '0.010000', protocols: ['x402'] },
+          responses: { 201: { description: 'Requested' }, 402: { description: 'Payment Required' } },
+        },
+      },
+      '/api/cdr/vaults/{vaultId}/recover': {
+        post: {
+          operationId: 'cdrVaultRecover',
+          summary: 'Paid cooperative recovery simulation (demo)',
+          tags: ['CDR'],
+          parameters: [{ name: 'vaultId', in: 'path', required: true, schema: { type: 'string' } }],
+          'x-payment-info': { pricingMode: 'fixed', minPrice: '0.010000', maxPrice: '0.010000', protocols: ['x402'] },
+          responses: { 200: { description: 'Recovered' }, 402: { description: 'Payment Required' } },
+        },
+      },
+      '/api/cdr/vaults/{vaultId}/revoke': {
+        post: {
+          operationId: 'cdrVaultRevoke',
+          summary: 'Paid vault revoke action (demo)',
+          tags: ['CDR'],
+          parameters: [{ name: 'vaultId', in: 'path', required: true, schema: { type: 'string' } }],
+          'x-payment-info': { pricingMode: 'fixed', minPrice: '0.010000', maxPrice: '0.010000', protocols: ['x402'] },
+          responses: { 200: { description: 'Revoked' }, 402: { description: 'Payment Required' } },
+        },
+      },
+      '/api/cdr/vaults/{vaultId}': {
+        get: {
+          operationId: 'cdrVaultGet',
+          summary: 'Get CDR vault state snapshot',
+          tags: ['CDR'],
+          parameters: [{ name: 'vaultId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Vault details' }, 404: { description: 'Not found' } },
+        },
+      },
+      '/api/cdr/audit': {
+        get: {
+          operationId: 'cdrAuditList',
+          summary: 'List CDR audit events',
+          tags: ['CDR'],
+          responses: { 200: { description: 'Audit list' } },
+        },
+      },
       '/api/circle-modular': {
         post: {
           operationId: 'circleModularProxy',

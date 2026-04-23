@@ -34,6 +34,11 @@ export const HUB_ROUTE_GROUPS: HubRouteGroup[] = [
         title: 'NHS UK dataset lane',
         hint: 'OpenGPT-aligned NHS datasets + CogStack synergy + USDC nanopayments',
       },
+      {
+        href: '/nhs/cdr',
+        title: 'CDR (Confidential Data Rails)',
+        hint: 'Policy-aware confidential unlock flow + vault lifecycle + Arc USDC x402',
+      },
     ],
   },
 ]

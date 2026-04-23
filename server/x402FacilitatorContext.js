@@ -7,7 +7,13 @@
 function isPaidRoutedPost(req) {
   if (req.method !== 'POST') return false
   const path = req.path || ''
-  if (!path.startsWith('/api/neighbourhood') && !path.startsWith('/api/openehr') && !path.startsWith('/api/dmd')) return false
+  if (
+    !path.startsWith('/api/neighbourhood') &&
+    !path.startsWith('/api/openehr') &&
+    !path.startsWith('/api/dmd') &&
+    !path.startsWith('/api/cdr')
+  )
+    return false
   if (
     path.startsWith('/api/neighbourhood') &&
     (path.includes('/insights/lsoa') ||
@@ -20,6 +26,15 @@ function isPaidRoutedPost(req) {
     return true
   if (path.startsWith('/api/openehr') && path.endsWith('/query/aql')) return true
   if (path.startsWith('/api/dmd') && (path.endsWith('/lookup') || path.endsWith('/summary'))) return true
+  if (
+    path.startsWith('/api/cdr') &&
+    (path.endsWith('/vaults/allocate') ||
+      path.endsWith('/encrypt-store') ||
+      path.endsWith('/request-access') ||
+      path.endsWith('/recover') ||
+      path.endsWith('/revoke'))
+  )
+    return true
   return false
 }
 
@@ -28,7 +43,12 @@ function isPaidRoutedPost(req) {
  */
 export function resolveNhsX402Facilitator(req, res, next) {
   const path = req.path || ''
-  if (!path.startsWith('/api/neighbourhood') && !path.startsWith('/api/openehr') && !path.startsWith('/api/dmd')) {
+  if (
+    !path.startsWith('/api/neighbourhood') &&
+    !path.startsWith('/api/openehr') &&
+    !path.startsWith('/api/dmd') &&
+    !path.startsWith('/api/cdr')
+  ) {
     return next()
   }
 
