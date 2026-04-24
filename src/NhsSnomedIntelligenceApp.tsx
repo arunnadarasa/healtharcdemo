@@ -43,6 +43,39 @@ type IntegrationContext = {
   }
 }
 
+type Rf2SearchRow = {
+  conceptId: string
+  preferredTerm: string | null
+  fsn: string | null
+  active: boolean
+  moduleId: string | null
+  effectiveTime: string | null
+  score?: number
+  matchCount?: number
+}
+
+type Rf2ConceptDetails = {
+  conceptId: string
+  active: boolean
+  moduleId: string | null
+  effectiveTime: string | null
+  definitionStatusId: string | null
+  sourcePackage: string
+  preferredTerm: string | null
+  fsn: string | null
+  descriptions: Array<{
+    descriptionId: string
+    term: string
+    typeId: string
+    languageCode: string
+    active: number
+    effectiveTime: string | null
+    moduleId: string | null
+  }>
+  parents: Array<{ conceptId: string; preferredTerm: string | null; fsn: string | null }>
+  children: Array<{ conceptId: string; preferredTerm: string | null; fsn: string | null }>
+}
+
 const TX_LOG_PAGE_SIZE = 10
 
 function SnomedIntelligenceGrid({
@@ -67,12 +100,75 @@ function SnomedIntelligenceGrid({
 
   const [conceptId, setConceptId] = useState('50849002')
   const [snomedOut, setSnomedOut] = useState('')
+  const [rf2HealthOut, setRf2HealthOut] = useState('')
+  const [rf2Query, setRf2Query] = useState('pregnancy')
+  const [rf2SearchOut, setRf2SearchOut] = useState<Rf2SearchRow[]>([])
+  const [rf2Selected, setRf2Selected] = useState('289908002')
+  const [rf2ConceptOut, setRf2ConceptOut] = useState<Rf2ConceptDetails | null>(null)
+  const [rf2DetailTab, setRf2DetailTab] = useState<'summary' | 'descriptions' | 'hierarchy'>('summary')
+  const [rf2Error, setRf2Error] = useState('')
 
   const [searchQ, setSearchQ] = useState('asthma')
   const [dataset, setDataset] = useState<'all' | 'ae' | 'op' | 'apc'>('all')
   const [searchOut, setSearchOut] = useState('')
   const [summaryOut, setSummaryOut] = useState('')
   const [lsoaFilter, setLsoaFilter] = useState('')
+
+  const runRf2Health = useCallback(async () => {
+    setRf2Error('')
+    try {
+      const res = await fetch('/api/snomed/rf2/health')
+      const j = await res.json()
+      setRf2HealthOut(JSON.stringify(j, null, 2))
+    } catch (e) {
+      setRf2Error(String((e as Error)?.message || e))
+    }
+  }, [])
+
+  const runRf2Search = useCallback(async () => {
+    const q = rf2Query.trim()
+    if (!q) {
+      setRf2Error('Enter a term or SCTID.')
+      return
+    }
+    setRf2Error('')
+    try {
+      const res = await fetch(`/api/snomed/rf2/search?q=${encodeURIComponent(q)}&limit=30`)
+      const j = await res.json()
+      if (!res.ok) {
+        setRf2Error(j?.error || `HTTP ${res.status}`)
+        return
+      }
+      const rows = Array.isArray(j?.rows) ? (j.rows as Rf2SearchRow[]) : []
+      setRf2SearchOut(rows)
+      if (rows[0]?.conceptId) {
+        setRf2Selected(rows[0].conceptId)
+      }
+    } catch (e) {
+      setRf2Error(String((e as Error)?.message || e))
+    }
+  }, [rf2Query])
+
+  const runRf2Lookup = useCallback(async (idFromRow?: string) => {
+    const id = (idFromRow || rf2Selected || '').trim()
+    if (!id) return
+    setRf2Error('')
+    try {
+      const res = await fetch(`/api/snomed/rf2/concept/${encodeURIComponent(id)}`)
+      const j = await res.json()
+      if (!res.ok) {
+        setRf2ConceptOut(null)
+        setRf2Error(j?.error || `HTTP ${res.status}`)
+        return
+      }
+      setRf2ConceptOut(j as Rf2ConceptDetails)
+      setRf2DetailTab('summary')
+      setRf2Selected(id)
+    } catch (e) {
+      setRf2ConceptOut(null)
+      setRf2Error(String((e as Error)?.message || e))
+    }
+  }, [rf2Selected])
 
   const refreshTxLog = useCallback(() => {
     setTxRows(listNhsTxHistoryHesScale(session.network))
@@ -275,6 +371,138 @@ function SnomedIntelligenceGrid({
           </button>
         </div>
         <pre className="log">{snomedOut || 'Run Snowstorm health/lookup to preview terminology context.'}</pre>
+      </article>
+
+      <article className="card" style={{ gridColumn: '1 / -1' }}>
+        <h2>Local RF2 browser (no Snowstorm required)</h2>
+        <p className="note">
+          Bespoke RF2 path for this demo: search by word or SCTID over local UK RF2 packages, then inspect concept-level
+          details (FSN, synonyms, hierarchy snippets).
+        </p>
+        <div className="actions" style={{ alignItems: 'center' }}>
+          <button type="button" className="secondary" onClick={() => void runRf2Health()}>
+            GET /api/snomed/rf2/health
+          </button>
+          <input
+            value={rf2Query}
+            onChange={(e) => setRf2Query(e.target.value)}
+            placeholder="e.g. pregnancy or 289908002"
+          />
+          <button type="button" className="secondary" onClick={() => void runRf2Search()}>
+            Search RF2
+          </button>
+          <input value={rf2Selected} onChange={(e) => setRf2Selected(e.target.value)} placeholder="SCTID" />
+          <button type="button" className="secondary" onClick={() => void runRf2Lookup()}>
+            Load concept
+          </button>
+        </div>
+        {rf2Error ? <p className="note" style={{ color: '#b45309' }}>{rf2Error}</p> : null}
+        <div className="grid" style={{ gridTemplateColumns: 'minmax(280px, 1fr) minmax(420px, 1.5fr)' }}>
+          <article className="card">
+            <h3 style={{ marginTop: 0 }}>Results</h3>
+            {rf2SearchOut.length === 0 ? (
+              <p className="note">Run search to list matching concepts.</p>
+            ) : (
+              <div className="tx-table-wrap" style={{ maxHeight: 360, overflow: 'auto' }}>
+                <table className="tx-table">
+                  <thead>
+                    <tr>
+                      <th>SCTID</th>
+                      <th>Term</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rf2SearchOut.map((row) => (
+                      <tr
+                        key={row.conceptId}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => void runRf2Lookup(row.conceptId)}
+                      >
+                        <td>
+                          <code>{row.conceptId}</code>
+                        </td>
+                        <td>{row.preferredTerm || row.fsn || '—'}</td>
+                        <td>{row.active ? 'Active' : 'Inactive'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+          <article className="card">
+            <h3 style={{ marginTop: 0 }}>Concept details</h3>
+            {rf2ConceptOut ? (
+              <>
+                <div className="actions" role="tablist" aria-label="RF2 concept detail tabs">
+                  <button
+                    type="button"
+                    className={rf2DetailTab === 'summary' ? 'primary' : 'secondary'}
+                    onClick={() => setRf2DetailTab('summary')}
+                  >
+                    Summary
+                  </button>
+                  <button
+                    type="button"
+                    className={rf2DetailTab === 'descriptions' ? 'primary' : 'secondary'}
+                    onClick={() => setRf2DetailTab('descriptions')}
+                  >
+                    Descriptions ({rf2ConceptOut.descriptions.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={rf2DetailTab === 'hierarchy' ? 'primary' : 'secondary'}
+                    onClick={() => setRf2DetailTab('hierarchy')}
+                  >
+                    Hierarchy
+                  </button>
+                </div>
+                {rf2DetailTab === 'summary' ? (
+                  <pre className="log">
+                    {JSON.stringify(
+                      {
+                        conceptId: rf2ConceptOut.conceptId,
+                        preferredTerm: rf2ConceptOut.preferredTerm,
+                        fsn: rf2ConceptOut.fsn,
+                        active: rf2ConceptOut.active,
+                        moduleId: rf2ConceptOut.moduleId,
+                        effectiveTime: rf2ConceptOut.effectiveTime,
+                        definitionStatusId: rf2ConceptOut.definitionStatusId,
+                        sourcePackage: rf2ConceptOut.sourcePackage,
+                        parentCount: rf2ConceptOut.parents.length,
+                        childCount: rf2ConceptOut.children.length,
+                      },
+                      null,
+                      2,
+                    )}
+                  </pre>
+                ) : null}
+                {rf2DetailTab === 'descriptions' ? (
+                  <pre className="log">{JSON.stringify(rf2ConceptOut.descriptions.slice(0, 120), null, 2)}</pre>
+                ) : null}
+                {rf2DetailTab === 'hierarchy' ? (
+                  <pre className="log">
+                    {JSON.stringify(
+                      {
+                        parents: rf2ConceptOut.parents,
+                        children: rf2ConceptOut.children,
+                      },
+                      null,
+                      2,
+                    )}
+                  </pre>
+                ) : null}
+              </>
+            ) : (
+              <p className="note">No concept loaded yet.</p>
+            )}
+          </article>
+        </div>
+        <details style={{ marginTop: '0.65rem' }}>
+          <summary>RF2 health payload</summary>
+          <pre className="log">{rf2HealthOut || 'Run /api/snomed/rf2/health to inspect index status.'}</pre>
+        </details>
       </article>
 
       <article className="card">

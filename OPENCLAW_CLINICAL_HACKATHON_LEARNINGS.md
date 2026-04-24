@@ -263,6 +263,20 @@ Do not connect real clinical systems or ingest real patient records without appr
 3. **Reset the attempts filter after import.**  
    Operators often leave “Direct on-chain only” selected; importing an x402-only JSON then looks like “0 rows” even though rows loaded. Default the filter back to **all** after a successful import.
 
+## Session Update (RF2-first SNOMED alternative to Snowstorm)
+
+1. **A local RF2 index removes Snowstorm/Elasticsearch runtime dependency for browse/search demos.**  
+   Building a local SQLite-backed index from Snapshot files gives deterministic term + SCTID lookup without long Docker-based import cycles.
+
+2. **Bespoke browser UX can be integrated without forking the full IHTSDO frontend.**  
+   Reusing browser-style interaction patterns (search pane + tabbed concept details) inside the existing SNOMED page keeps app shell/payments integration intact while improving terminology depth.
+
+3. **Round-trip concept details should include hierarchy snippets, not only text labels.**  
+   Showing parent/child IS-A snippets alongside FSN/PT/description tabs makes the interface useful for clinical review conversations even before full classification tooling.
+
+4. **First index build time is a deployment concern; query latency is then cheap.**  
+   On full UK+INT packages, initial ingest can take minutes; afterward, local FTS/SQL lookups are fast enough for live demo interactions.
+
 ## Session Update (dm+d UI dataset label)
 
 1. **Do not hardcode operator-specific filesystem paths in React.**  

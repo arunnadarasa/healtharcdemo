@@ -2,7 +2,7 @@
 
 **Purpose:** Single file to paste into an LLM system prompt, upload to a coding agent, or feed RAG — **full orientation** to this repository.
 
-**Generated:** 2026-04-23T20:52:48.396Z (re-run `npm run build:llm` after doc edits)
+**Generated:** 2026-04-24T06:35:01.239Z (re-run `npm run build:llm` after doc edits)
 
 **Download (running app):** `/llm-full.txt` from the dev server or production site.
 
@@ -68,7 +68,7 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 | **Neighbourhood health plan (`/nhs/neighbourhood-insights`)** | **Hackathon app:** **openEHR** (EHRbase AQL via BFF), synthetic **artificial HES** LSOA aggregates, **SNOMED CT** ([IHTSDO](https://github.com/IHTSDO)), **Arc** + **USDC** (**x402**), optional **Featherless** narrative, **Circle Modular**, **Thirdweb** facilitator option where configured. |
 | **HES at scale (`/nhs/hes-scale`)** | **Full** artificial HES **AE + OP + APC** (streaming CSV ingest into SQLite), **FTS5** + prefix search (**`/api/neighbourhood/scale/search`**), **Featherless** AE+OP+APC narrative (**`/api/neighbourhood/scale/cross-summary`**), x402 **$0.01** per paid call — scalability story for judges. |
 | **NHS UK dataset lane (`/nhs/uk-dataset-lane`)** | OpenGPT-style NHS UK CSV lane with **paid retrieval** (**`/api/neighbourhood/uk/search`**) and **paid synthesis** (**`/api/neighbourhood/uk/synthesis`**) grounded on selected dataset rows; includes precision controls for focused output. |
-| **SNOMED intelligence (`/nhs/snomed-intelligence`)** | Snowstorm + SNOMED CT demo with free health/lookup checks and paid terminology search/summary routes using x402. |
+| **SNOMED intelligence (`/nhs/snomed-intelligence`)** | Hybrid SNOMED demo: local RF2 browser/search (`/api/snomed/rf2/*`) for full-package terminology retrieval plus optional Snowstorm health/lookup and paid terminology search/summary x402 routes. |
 | **dm+d intelligence (`/nhs/dmd-intelligence`)** | NHSBSA dm+d demo with free search/health checks and paid `lookup` + `summary` endpoints via x402. |
 | **CDR lane (`/nhs/cdr`)** | Story-inspired confidential data rails demo: **paid** vault allocation, **paid** encrypt/store, **paid** access + recovery lifecycle, plus audit log views. |
 | **Backend (`server/`)** | Express: **`/api/nhs/*`**, **`/api/neighbourhood/*`** (includes **`/scale/*`** + **`/uk/*`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`/api/cdr/*`**, **`POST /api/circle-modular`**, plus many optional gateway routes — see **`GET /openapi.json`**. |
@@ -104,7 +104,13 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 | `npm run snowstorm:down` | Stop Snowstorm + Elasticsearch (keeps the named Docker volume / data) |
 | `npm run snowstorm:poll-import -- <uuid>` | Poll `GET /imports/<uuid>` until the RF2 import finishes (see **`docs/SNOWSTORM_FULL_RF2_IMPORT.md`**) |
 
-Set **`SNOWSTORM_URL=http://localhost:8081`** and load a SNOMED CT RF2 release into Snowstorm for FHIR `$lookup` to return concepts ([loading SNOMED](https://github.com/IHTSDO/snowstorm/blob/master/docs/loading-snomed.md)). **Step-by-step for a full edition before submission:** [`docs/SNOWSTORM_FULL_RF2_IMPORT.md`](./docs/SNOWSTORM_FULL_RF2_IMPORT.md). Public **SNOMED International Browser** still works without Snowstorm.
+Set **`SNOWSTORM_URL=http://localhost:8081`** and load a SNOMED CT RF2 release into Snowstorm for FHIR `$lookup` to return concepts ([loading SNOMED](https://github.com/IHTSDO/snowstorm/blob/master/docs/loading-snomed.md)). **Step-by-step for a full edition before submission:** [`docs/SNOWSTORM_FULL_RF2_IMPORT.md`](./docs/SNOWSTORM_FULL_RF2_IMPORT.md).
+
+For the Snowstorm-free path in this repo, configure:
+- **`SNOMED_RF2_BASE_DIR`** (root folder containing your extracted RF2 packages; default is the local hackathon path under `~/Downloads`)
+- **`SNOMED_RF2_SQLITE_PATH`** (optional override for the local RF2 index DB; default `data/snomed-rf2.db`)
+
+Then use `/api/snomed/rf2/health`, `/api/snomed/rf2/search`, and `/api/snomed/rf2/concept/:sctid` from the SNOMED page. Public **SNOMED International Browser** still works without Snowstorm.
 
 If the UI shows **`Cannot POST /api/...`**, restart the backend on **8787**. Quick check: **`GET http://localhost:8787/openapi.json`**.
 
@@ -112,6 +118,7 @@ If the UI shows **`Cannot POST /api/...`**, restart the backend on **8787**. Qui
 
 - **SNOMED URI:** Keep FHIR lookup `system` as **`http://snomed.info/sct`**. If a concept returns not-found, check local Snowstorm content/version state before changing URI logic.
 - **Snowstorm imports:** UK RF2 loads may run for extended periods and are memory-sensitive; allocate sufficient heap to Elasticsearch/Snowstorm and monitor import job state to completion.
+- **Local RF2 index path:** If you need deterministic local browse/search without Docker/Elasticsearch, use the RF2 endpoints (`/api/snomed/rf2/*`). First index build is file-size dependent (can take minutes on full UK+INT packages), then subsequent queries are local SQLite lookups.
 - **dm+d strict matching:** Some upstream `wardle/dmd` queries are case/exact-match sensitive. This repo now tries multiple query variants and returns attempted/matched query metadata in dm+d responses.
 - **Payment troubleshooting:** Distinguish wallet USDC from Gateway available balance, especially in Circle mode where Gateway deposits are required for paid x402 flows.
 
@@ -135,13 +142,13 @@ For hackathon capture steps, see **[Hackathon criteria alignment](#hackathon-cri
 | `/nhs/neighbourhood-insights` | **Neighbourhood health plan** — HES aggregates, OpenEHR BFF, SNOMED tools, x402-paid actions, **transaction log** (paginated), facilitator preference. |
 | `/nhs/hes-scale` | **HES at scale** — SQLite row counts + on-disk DB size, **paid** FTS/prefix search, **paid** Featherless AE+OP+APC summary, tx log. |
 | `/nhs/uk-dataset-lane` | **NHS UK + OpenGPT data lane** — **paid** CSV retrieval + **paid** CSV-grounded synthesis with `content focus`, `audience`, and `context rows`. |
-| `/nhs/snomed-intelligence` | **SNOMED intelligence** — Snowstorm health/lookup plus paid terminology search and paid summary with x402. |
+| `/nhs/snomed-intelligence` | **SNOMED intelligence** — local RF2 browser (word + SCTID search, concept detail tabs) + optional Snowstorm health/lookup + paid terminology search/summary with x402. |
 | `/nhs/dmd-intelligence` | **dm+d intelligence** — NHSBSA dm+d free search/health and paid lookup/summary x402 flows. |
 | `/nhs/cdr` | **CDR (Confidential Data Rails)** — policy templates, paid vault lifecycle (`allocate`, `encrypt-store`, `request-access`, `recover`, `revoke`), and audit/tx timeline. |
 | `/nhs/onchain-runner` | **On-chain runner** — dual-mode runner: **direct** lane (MetaMask, strict tx hash per attempt) and **Circle x402** lane (MetaMask or Circle; batched settlement caveat) + export/import JSON evidence + clear attempt status labels. |
 | **`/`** · **`/nhs`** · **other unmatched paths** | **Hackathon hub** — wallet, links to neighbourhood + HES scale + NHS UK lane + SNOMED + dm+d + CDR + on-chain runner (`src/main.tsx` + `src/hubRoutes.ts`). |
 
-**Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`** (incl. **`/scale/search`**, **`/scale/cross-summary`**, **`/uk/search`**, **`/uk/synthesis`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`/api/cdr/*`** (`/vaults/allocate`, `/vaults/:vaultId/encrypt-store`, `/vaults/:vaultId/request-access`, `/vaults/:vaultId/recover`, `/vaults/:vaultId/revoke`, `/vaults/:vaultId`, `/audit`, `/licenses/check`, `/licenses/issue`), **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
+**Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`** (incl. **`/scale/search`**, **`/scale/cross-summary`**, **`/uk/search`**, **`/uk/synthesis`**), **`/api/openehr/*`**, **`/api/snomed/*`** (including **`/rf2/health`**, **`/rf2/search`**, **`/rf2/concept/:sctid`**), **`/api/cdr/*`** (`/vaults/allocate`, `/vaults/:vaultId/encrypt-store`, `/vaults/:vaultId/request-access`, `/vaults/:vaultId/recover`, `/vaults/:vaultId/revoke`, `/vaults/:vaultId`, `/audit`, `/licenses/check`, `/licenses/issue`), **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
 
 ### CDR token/license contract (Arc testnet)
 
@@ -190,6 +197,16 @@ Use `/nhs/onchain-runner` for hackathon evidence in two lanes:
 6. **Persistence and recovery:** attempts are saved in the browser; **Clear output** clears the screen only; **Delete stored history** wipes saved attempts; **Import attempts JSON** restores from a prior `runner-attempts-*.json` export.
 7. **Table UX:** filter by mode (all / direct / Circle x402), **51 rows per page**, and date/time column for each attempt. **Status column:** **Tx on-chain** when a transaction hash is present; **Paid (x402)** when the nanopayment call succeeded without a per-request hash (batched settlement); **Failed** otherwise—so judges are not misled when `txHash` is empty in x402 mode.
 8. **Import / export round-trip:** each exported attempt row includes **`ok`** plus the fields above. Imports **normalize** older files that omitted `ok` or only implied success via `paymentStatus`, infer **x402 vs direct** from `mode` or from `endpoint` (`/api/...` → x402 lane). After import, the **transactions view filter resets to “All transaction modes”** so a leftover “Direct only” filter does not hide x402 rows.
+
+### SNOMED local RF2 browser (full package)
+
+- SNOMED page now includes a **local RF2 browser pane** with search-by-term, direct SCTID lookup, and tabbed concept details (summary, descriptions, hierarchy).
+- Backend local RF2 endpoints:
+  - `GET /api/snomed/rf2/health`
+  - `GET /api/snomed/rf2/search?q=...&limit=...`
+  - `GET /api/snomed/rf2/concept/:sctid`
+- Data source expectation: extracted RF2 package root at `SNOMED_RF2_BASE_DIR` (default hackathon local path).
+- Search behavior: active description FTS index for word/SCTID discovery; concept details include FSN/PT heuristics plus active IS-A parent/child snippets for quick navigation.
 
 ### dm+d local dataset (UI + server)
 
