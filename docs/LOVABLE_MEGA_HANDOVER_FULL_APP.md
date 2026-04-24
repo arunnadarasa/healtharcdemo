@@ -348,6 +348,7 @@ sequenceDiagram
 - **OpenAPI:** `GET http://localhost:8787/openapi.json` (also `GET /openapi.json` on same server).
 - **Vite proxy:** mirror `vite.config.ts` `server.proxy` for `/api` and `/openapi.json`.
 - **Regenerate LLM bundle:** `npm run build:llm` (optional).
+- **Lovable static demo seeds (no TRUD blobs in git):** SNOMED concept list — `docs/LOVABLE_SNOMED_DEMO_CONCEPTS.{json,csv,md}`; dm+d search strings — `docs/LOVABLE_DMD_DEMO_ITEMS.{json,csv,md}`.
 
 ---
 

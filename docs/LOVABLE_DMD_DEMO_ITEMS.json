@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "purpose": "Sample dm+d demo rows for Lovable — free-text `q` and optional TRUD `code` for wardle/dmd behind DMD_SERVICE_URL.",
+    "api": {
+      "free_search": "GET /api/dmd/search?q=...&code= (code optional; when set, upstream GET /dmd/v1/product/{code})",
+      "paid_lookup": "POST /api/dmd/lookup JSON { \"q\": \"...\", \"code\": \"...\" } (x402)",
+      "paid_summary": "POST /api/dmd/summary JSON { \"q\": \"...\", \"code\": \"...\" } (x402 + FEATHERLESS_API_KEY)"
+    },
+    "naming_tip": "wardle/dmd search can be picky — prefer Title Case drug names (e.g. Amlodipine not amlodipine). This repo’s API tries query variants and returns attemptedQueries / matchedQuery.",
+    "code_note": "Numeric `code` values must exist in YOUR loaded dm+d TRUD snapshot; leave null/empty and use `q` only if unsure."
+  },
+  "items": [
+    { "id": "dmd-001", "label": "Paracetamol", "q": "Paracetamol", "code": null, "category": "Analgesic" },
+    { "id": "dmd-002", "label": "Ibuprofen", "q": "Ibuprofen", "code": null, "category": "NSAID" },
+    { "id": "dmd-003", "label": "Aspirin", "q": "Aspirin", "code": null, "category": "Antiplatelet" },
+    { "id": "dmd-004", "label": "Metformin", "q": "Metformin", "code": null, "category": "Antidiabetic" },
+    { "id": "dmd-005", "label": "Amlodipine", "q": "Amlodipine", "code": null, "category": "Calcium channel blocker" },
+    { "id": "dmd-006", "label": "Atorvastatin", "q": "Atorvastatin", "code": null, "category": "Lipid lowering" },
+    { "id": "dmd-007", "label": "Omeprazole", "q": "Omeprazole", "code": null, "category": "PPI" },
+    { "id": "dmd-008", "label": "Salbutamol", "q": "Salbutamol", "code": null, "category": "Bronchodilator" },
+    { "id": "dmd-009", "label": "Amoxicillin", "q": "Amoxicillin", "code": null, "category": "Antibiotic" },
+    { "id": "dmd-010", "label": "Warfarin", "q": "Warfarin", "code": null, "category": "Anticoagulant" },
+    { "id": "dmd-011", "label": "Levothyroxine", "q": "Levothyroxine", "code": null, "category": "Thyroid" },
+    { "id": "dmd-012", "label": "Bisoprolol", "q": "Bisoprolol", "code": null, "category": "Beta blocker" },
+    { "id": "dmd-013", "label": "Sertraline", "q": "Sertraline", "code": null, "category": "SSRI" },
+    { "id": "dmd-014", "label": "Morphine", "q": "Morphine", "code": null, "category": "Opioid analgesic" },
+    { "id": "dmd-015", "label": "Insulin glargine", "q": "Insulin glargine", "code": null, "category": "Insulin" }
+  ],
+  "search_suggestions": [
+    "Paracetamol",
+    "Metformin",
+    "Amlodipine",
+    "Salbutamol",
+    "Amoxicillin",
+    "Atorvastatin"
+  ]
+}

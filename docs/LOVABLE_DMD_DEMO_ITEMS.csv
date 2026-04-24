@@ -1,0 +1,16 @@
+id,label,q,code,category
+dmd-001,Paracetamol,Paracetamol,,Analgesic
+dmd-002,Ibuprofen,Ibuprofen,,NSAID
+dmd-003,Aspirin,Aspirin,,Antiplatelet
+dmd-004,Metformin,Metformin,,Antidiabetic
+dmd-005,Amlodipine,Amlodipine,,Calcium channel blocker
+dmd-006,Atorvastatin,Atorvastatin,,Lipid lowering
+dmd-007,Omeprazole,Omeprazole,,PPI
+dmd-008,Salbutamol,Salbutamol,,Bronchodilator
+dmd-009,Amoxicillin,Amoxicillin,,Antibiotic
+dmd-010,Warfarin,Warfarin,,Anticoagulant
+dmd-011,Levothyroxine,Levothyroxine,,Thyroid
+dmd-012,Bisoprolol,Bisoprolol,,Beta blocker
+dmd-013,Sertraline,Sertraline,,SSRI
+dmd-014,Morphine,Morphine,,Opioid analgesic
+dmd-015,Insulin glargine,Insulin glargine,,Insulin
