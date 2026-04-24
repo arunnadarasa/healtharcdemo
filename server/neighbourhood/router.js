@@ -38,6 +38,46 @@ function nowIso() {
 }
 
 /**
+ * Shared HES FTS / prefix search payload (used by free GET and paid POST).
+ * @param {Record<string, unknown>} raw
+ */
+function runScaleHesSearchPayload(raw) {
+  const { q, dataset, limit, offset, mode } = raw ?? {}
+  const ds = ['ae', 'op', 'apc', 'all'].includes(dataset) ? dataset : 'all'
+  const lim = Math.min(200, Math.max(1, Number(limit) || 20))
+  const off = Math.max(0, Number(offset) || 0)
+  const m = mode === 'prefix' || mode === 'fts' || mode === 'auto' ? mode : 'auto'
+  let rows = []
+  let searchMode = 'fts'
+  if (m === 'prefix') {
+    rows = searchHesPrefix(q, ds, lim).rows
+    searchMode = 'prefix'
+  } else if (m === 'fts') {
+    rows = searchHesFts({ q, dataset: ds, limit: lim, offset: off }).rows
+    searchMode = 'fts'
+  } else {
+    const fts = searchHesFts({ q, dataset: ds, limit: lim, offset: off })
+    rows = fts.rows
+    if (rows.length === 0 && typeof q === 'string' && q.trim()) {
+      rows = searchHesPrefix(q, ds, lim).rows
+      searchMode = 'prefix'
+    }
+  }
+  const tableCounts = hesStats()
+  const emptyHint = emptySearchHint(ds, rows.length, tableCounts)
+  return {
+    ok: true,
+    q: typeof q === 'string' ? q : '',
+    dataset: ds,
+    searchMode,
+    rows,
+    tableCounts,
+    emptyHint,
+    disclaimer: 'Synthetic artificial HES — demo search only.',
+  }
+}
+
+/**
  * @param {{ gateway: import('@circle-fin/x402-batching/server').GatewayMiddleware, skipInternalGateway?: boolean }} deps
  */
 export function createNeighbourhoodRouter(deps) {
@@ -177,6 +217,21 @@ export function createNeighbourhoodRouter(deps) {
     ),
   )
 
+  router.get('/scale/search', (req, res) => {
+    try {
+      const payload = runScaleHesSearchPayload({
+        q: req.query.q,
+        dataset: req.query.dataset,
+        limit: req.query.limit,
+        offset: req.query.offset,
+        mode: req.query.mode,
+      })
+      return res.json({ ...payload, free: true })
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: String(e?.message ?? e) })
+    }
+  })
+
   router.post(
     '/scale/search',
     ...gate(
@@ -185,43 +240,16 @@ export function createNeighbourhoodRouter(deps) {
         amount: '0.01',
       },
       (req, res, paymentCtx) => {
-        const { q, dataset, limit, offset, mode } = req.body ?? {}
-        const ds = ['ae', 'op', 'apc', 'all'].includes(dataset) ? dataset : 'all'
-        const lim = Math.min(200, Math.max(1, Number(limit) || 20))
-        const off = Math.max(0, Number(offset) || 0)
-        const m = mode === 'prefix' || mode === 'fts' || mode === 'auto' ? mode : 'auto'
         try {
-          let rows = []
-          let searchMode = 'fts'
-          if (m === 'prefix') {
-            rows = searchHesPrefix(q, ds, lim).rows
-            searchMode = 'prefix'
-          } else if (m === 'fts') {
-            rows = searchHesFts({ q, dataset: ds, limit: lim, offset: off }).rows
-            searchMode = 'fts'
-          } else {
-            const fts = searchHesFts({ q, dataset: ds, limit: lim, offset: off })
-            rows = fts.rows
-            if (rows.length === 0 && typeof q === 'string' && q.trim()) {
-              rows = searchHesPrefix(q, ds, lim).rows
-              searchMode = 'prefix'
-            }
-          }
-          const tableCounts = hesStats()
-          const emptyHint = emptySearchHint(ds, rows.length, tableCounts)
+          const payload = runScaleHesSearchPayload(req.body ?? {})
           return res.json({
-            ok: true,
+            ...payload,
             receiptRef: paymentCtx.paymentReceiptRef ?? null,
-            q: typeof q === 'string' ? q : '',
-            dataset: ds,
-            searchMode,
-            rows,
-            tableCounts,
-            emptyHint,
-            disclaimer: 'Synthetic artificial HES — demo search only.',
+            free: false,
           })
         } catch (e) {
           return res.status(400).json({
+            ok: false,
             error: String(e?.message ?? e),
             receiptRef: paymentCtx.paymentReceiptRef ?? null,
           })

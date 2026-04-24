@@ -37,12 +37,6 @@ type IntegrationContext = {
       ihtsdoGithub?: string
       localRf2Path?: string
     }
-    references?: Array<{
-      conceptId: string
-      term: string
-      useCase: string
-      browserUrl: string
-    }>
   }
 }
 
@@ -156,18 +150,6 @@ function NeighbourhoodInsightsGrid({
             </a>
             .
           </p>
-        ) : null}
-        {integration?.hackathon?.references?.length ? (
-          <ul className="note" style={{ marginTop: '0.5rem', paddingLeft: '1.25rem' }}>
-            {integration.hackathon.references.map((r) => (
-              <li key={r.conceptId}>
-                <a href={r.browserUrl} target="_blank" rel="noreferrer">
-                  {r.conceptId}
-                </a>{' '}
-                — {r.term}
-              </li>
-            ))}
-          </ul>
         ) : null}
         {integration?.hackathon?.snomedCt?.localRf2Path ? (
           <p className="note" style={{ marginTop: '0.75rem' }}>

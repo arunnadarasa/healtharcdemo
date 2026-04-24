@@ -113,6 +113,60 @@ function HesScaleGrid({
   const txPageStart = (txPageSafe - 1) * TX_LOG_PAGE_SIZE
   const txPageRows = filteredTxRows.slice(txPageStart, txPageStart + TX_LOG_PAGE_SIZE)
 
+  const formatSearchResultJson = (data: {
+    searchMode?: string
+    rows?: SearchRow[]
+    tableCounts?: HealthJson['sqlite']
+    emptyHint?: string | null
+    free?: boolean
+  }) => {
+    const rows = data?.rows ?? []
+    return JSON.stringify(
+      {
+        free: data?.free === true,
+        searchMode: data?.searchMode,
+        count: rows.length,
+        tableCounts: data?.tableCounts,
+        emptyHint: data?.emptyHint,
+        rows: rows.slice(0, 25),
+      },
+      null,
+      2,
+    )
+  }
+
+  const runFreeSearch = async () => {
+    setBusy(true)
+    setSearchOut('')
+    try {
+      const u = new URL('/api/neighbourhood/scale/search', window.location.origin)
+      u.searchParams.set('q', searchQ)
+      u.searchParams.set('dataset', dataset)
+      u.searchParams.set('limit', '25')
+      u.searchParams.set('offset', '0')
+      u.searchParams.set('mode', searchMode)
+      const res = await fetch(u.toString())
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: string
+        rows?: SearchRow[]
+        searchMode?: string
+        tableCounts?: HealthJson['sqlite']
+        emptyHint?: string | null
+        free?: boolean
+      }
+      if (!res.ok || json.ok === false) {
+        setSearchOut(typeof json.error === 'string' ? json.error : `HTTP ${res.status}`)
+        return
+      }
+      setSearchOut(formatSearchResultJson({ ...json, free: true }))
+    } catch (e) {
+      setSearchOut(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const runSearch = async () => {
     if (!session.wallet) {
       setSearchOut('Connect a wallet for paid search.')
@@ -128,6 +182,7 @@ function HesScaleGrid({
         tableCounts?: HealthJson['sqlite']
         emptyHint?: string | null
         disclaimer?: string
+        free?: boolean
       }>(
         '/api/neighbourhood/scale/search',
         session.role,
@@ -140,20 +195,7 @@ function HesScaleGrid({
         return
       }
       refreshTxLog()
-      const rows = res.data?.rows ?? []
-      setSearchOut(
-        JSON.stringify(
-          {
-            searchMode: res.data?.searchMode,
-            count: rows.length,
-            tableCounts: res.data?.tableCounts,
-            emptyHint: res.data?.emptyHint,
-            rows: rows.slice(0, 25),
-          },
-          null,
-          2,
-        ),
-      )
+      setSearchOut(formatSearchResultJson({ ...(res.data ?? {}), free: false }))
     } finally {
       setBusy(false)
     }
@@ -315,7 +357,7 @@ function HesScaleGrid({
       </article>
 
       <article className="card">
-        <h2>FTS / prefix search (paid)</h2>
+        <h2>FTS / prefix search (free + paid)</h2>
         {sqliteStats ? (
           <p className="note" style={{ marginBottom: '0.5rem' }}>
             <strong>SQLite rows:</strong> AE {sqliteStats.aeRows ?? 0} · OP {sqliteStats.opRows ?? 0} · APC{' '}
@@ -332,7 +374,9 @@ function HesScaleGrid({
         ) : null}
         <p className="note">
           SQLite <strong>FTS5</strong> on LSOA + pseudo HES id; <strong>auto</strong> falls back to prefix match if FTS
-          returns no rows.
+          returns no rows. <strong>Search (free)</strong> uses <code>GET /api/neighbourhood/scale/search</code> (same
+          query logic, no wallet). <strong>Search ({NEIGHBOURHOOD_X402_PRICE_DISPLAY})</strong> uses the paid POST for
+          x402 demos and the transaction log.
         </p>
         <label className="note" style={{ display: 'block', marginBottom: '0.35rem' }}>
           Query
@@ -357,10 +401,19 @@ function HesScaleGrid({
             <option value="prefix">prefix only</option>
           </select>
         </div>
-        <button type="button" disabled={busy || !session.wallet} onClick={() => void runSearch()}>
-          Search ({NEIGHBOURHOOD_X402_PRICE_DISPLAY})
-        </button>
-        {!session.wallet ? <p className="note">Connect wallet to run paid search.</p> : null}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+          <button type="button" className="secondary" disabled={busy} onClick={() => void runFreeSearch()}>
+            Search (free)
+          </button>
+          <button type="button" disabled={busy || !session.wallet} onClick={() => void runSearch()}>
+            Search ({NEIGHBOURHOOD_X402_PRICE_DISPLAY})
+          </button>
+        </div>
+        {!session.wallet ? (
+          <p className="note" style={{ marginTop: '0.5rem' }}>
+            Connect a wallet for paid search; free search does not require a wallet.
+          </p>
+        ) : null}
         {searchOut ? (
           <pre className="note" style={{ marginTop: '0.75rem', overflow: 'auto', maxHeight: '16rem' }}>
             {searchOut}

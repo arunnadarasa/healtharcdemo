@@ -45,7 +45,7 @@ export function snomedReferencesWithUrls() {
   }))
 }
 
-/** @returns {object} Static + references for neighbourhood “Hackathon integration” card (no Snowstorm payload). */
+/** @returns {object} Static context for neighbourhood “Hackathon integration” card (no Snowstorm payload). */
 export function getIntegrationContext() {
   return {
     openEhr: {
@@ -70,6 +70,5 @@ export function getIntegrationContext() {
       ihtsdoGithub: 'https://github.com/IHTSDO',
       localRf2Path: '/nhs/snomed-intelligence',
     },
-    references: snomedReferencesWithUrls(),
   }
 }
