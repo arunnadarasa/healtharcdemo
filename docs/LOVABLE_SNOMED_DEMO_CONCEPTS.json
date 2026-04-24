@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "purpose": "Curated SNOMED CT concept ids + labels for Lovable / demo UIs. IDs are international-style SCTIDs; confirm against your RF2 edition if a lookup fails.",
+    "suggested_rf2_health": "GET /api/snomed/rf2/health",
+    "suggested_concept": "GET /api/snomed/rf2/concept/{conceptId}"
+  },
+  "concepts": [
+    { "conceptId": "44054006", "preferredTerm": "Type 2 diabetes mellitus", "category": "Endocrine" },
+    { "conceptId": "46635009", "preferredTerm": "Type 1 diabetes mellitus", "category": "Endocrine" },
+    { "conceptId": "38341003", "preferredTerm": "Hypertensive disorder, systemic arterial", "category": "Cardiovascular" },
+    { "conceptId": "22298006", "preferredTerm": "Myocardial infarction", "category": "Cardiovascular" },
+    { "conceptId": "413343000", "preferredTerm": "Angina co-occurrent and due to coronary atherosclerosis", "category": "Cardiovascular" },
+    { "conceptId": "195967001", "preferredTerm": "Asthma", "category": "Respiratory" },
+    { "conceptId": "13645005", "preferredTerm": "Chronic obstructive lung disease", "category": "Respiratory" },
+    { "conceptId": "386661006", "preferredTerm": "Fever", "category": "General / symptoms" },
+    { "conceptId": "84229001", "preferredTerm": "Fatigue", "category": "General / symptoms" },
+    { "conceptId": "271737000", "preferredTerm": "Anemia", "category": "Hematology" },
+    { "conceptId": "14094001", "preferredTerm": "Hyperemesis gravidarum", "category": "Pregnancy" },
+    { "conceptId": "77386006", "preferredTerm": "Pregnancy", "category": "Pregnancy" },
+    { "conceptId": "773943001", "preferredTerm": "Fracture of bone", "category": "MSK" },
+    { "conceptId": "128139000", "preferredTerm": "Inflammatory disorder", "category": "General" },
+    { "conceptId": "840539006", "preferredTerm": "Disease caused by severe acute respiratory syndrome coronavirus 2", "category": "Infection" },
+    { "conceptId": "6142004", "preferredTerm": "Influenza", "category": "Infection" },
+    { "conceptId": "301345002", "preferredTerm": "Difficulty sleeping", "category": "Mental / sleep" },
+    { "conceptId": "35489007", "preferredTerm": "Depressive disorder", "category": "Mental" },
+    { "conceptId": "403192003", "preferredTerm": "Tumor stage finding", "category": "Oncology / staging" },
+    { "conceptId": "363346000", "preferredTerm": "Malignant neoplastic disease", "category": "Oncology" }
+  ],
+  "search_suggestions": [
+    "pregnancy",
+    "diabetes",
+    "hypertension",
+    "asthma",
+    "myocardial infarction",
+    "fever",
+    "covid"
+  ]
+}

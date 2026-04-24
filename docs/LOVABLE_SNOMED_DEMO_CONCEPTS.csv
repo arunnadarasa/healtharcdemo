@@ -1,0 +1,21 @@
+conceptId,preferredTerm,category
+44054006,Type 2 diabetes mellitus,Endocrine
+46635009,Type 1 diabetes mellitus,Endocrine
+38341003,"Hypertensive disorder, systemic arterial",Cardiovascular
+22298006,Myocardial infarction,Cardiovascular
+413343000,Angina co-occurrent and due to coronary atherosclerosis,Cardiovascular
+195967001,Asthma,Respiratory
+13645005,Chronic obstructive lung disease,Respiratory
+386661006,Fever,General / symptoms
+84229001,Fatigue,General / symptoms
+271737000,Anemia,Hematology
+14094001,Hyperemesis gravidarum,Pregnancy
+77386006,Pregnancy,Pregnancy
+773943001,Fracture of bone,MSK
+128139000,Inflammatory disorder,General
+840539006,Disease caused by severe acute respiratory syndrome coronavirus 2,Infection
+6142004,Influenza,Infection
+301345002,Difficulty sleeping,Mental / sleep
+35489007,Depressive disorder,Mental
+403192003,Tumor stage finding,Oncology / staging
+363346000,Malignant neoplastic disease,Oncology
