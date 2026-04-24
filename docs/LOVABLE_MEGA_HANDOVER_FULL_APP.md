@@ -313,7 +313,7 @@ sequenceDiagram
 3. `cp .env.example .env` and fill **X402_SELLER_ADDRESS**, **DMD_SERVICE_URL**, **SNOMED_RF2_BASE_DIR**, **FEATHERLESS_API_KEY**, **PINATA_JWT** as needed.
 4. Place the three **NHS UK** CSV files under `data/`.
 5. Start RF2 index build (first run may return **503** on RF2 routes until `indexReady` on `/api/snomed/rf2/health`).
-6. `npm run dev:full` → Vite **5173**, API **8787**.
+6. `npm run dev:full` → Vite **5173**, API **8787**. For **Lovable Option B** (external API), see `docs/FLY_SNOMED_API.md` (Fly.io + volume + `FLY_PUBLIC_CORS_ORIGINS`).
 7. **After pulling new API routes** (e.g. new paid POSTs such as `/api/snomed/rf2/summary`): restart `npm run server` or `npm run dev:full`. If an old Node process stays on **8787**, Express may return HTML **404** with `Cannot POST /path…` while older GET routes still work — the client maps that case to a “restart the API on 8787” hint (`src/nhsApi.ts` `errorFromResponse`).
 8. Fund Arc testnet wallet (USDC + gas) — app links Circle faucet.
 9. For Circle x402 batching: use in-app **Gateway deposit** when prompted (`NhsShell` paths above).
