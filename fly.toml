@@ -7,7 +7,8 @@
 #   fly deploy
 #
 app = "arc-snomed-api"
-primary_region = "lhr"
+# LHR volume placement hit "insufficient resources" for this org; AMS often frees capacity.
+primary_region = "ams"
 
 [build]
   dockerfile = "Dockerfile"
@@ -32,7 +33,8 @@ primary_region = "lhr"
     timeout = "5s"
 
 [[vm]]
-  memory = "2048mb"
+  # 2g failed placement with volume in some orgs; 1g is enough for API + SQLite SNOMED reads.
+  memory = "1024mb"
   cpu_kind = "shared"
   cpus = 1
 

@@ -4,17 +4,19 @@ Run the **same Express API** this repo uses locally, with **`snomed-rf2.db`** (a
 
 ## Prerequisites
 
-- [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) and `fly auth login`
+- [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) and `fly auth login` (CLI tokens expire after ~30 days; run login again if `fly auth whoami` fails).
 - A built **`snomed-rf2.db`** locally (`data/snomed-rf2.db` after indexing), **or** RF2 release files + `SNOMED_RF2_BASE_DIR` pointing at them on the volume (first request may build the index — slow; prefer uploading a prebuilt DB).
 
 ## 1. App and volume
 
 ```bash
 fly apps create arc-snomed-api   # or another name; must match `app` in fly.toml
-fly volumes create snomed_data --region lhr --size 20
+fly volumes create snomed_data --region ams --size 20 --app arc-snomed-api --yes
 ```
 
-Use the **same region** as `primary_region` in `fly.toml` (default `lhr`). Increase `--size` if your DB + RF2 exceeds 20 GB.
+Use the **same region** as `primary_region` in `fly.toml` (this repo defaults to **`ams`** after LHR hit `insufficient resources` when pairing a 1–2 GB machine with a new volume). You can switch region: destroy the volume (`fly volumes destroy <id> -a arc-snomed-api -y`), set `primary_region` in `fly.toml`, recreate the volume in that region, then `fly deploy`.
+
+Increase `--size` if your DB + RF2 exceeds 20 GB.
 
 ## 2. Put data on the volume
 
@@ -78,6 +80,7 @@ Set **`SNOMED_API_URL`** (or your app’s equivalent) to **`https://<app>.fly.de
 
 | Symptom | Likely cause |
 |--------|----------------|
+| `insufficient resources to create new machine with existing volume` | Volume is pinned to a host that cannot fit your VM size; try **`ams`** / **`fra`**, smaller `[[vm]] memory` in `fly.toml`, or destroy and recreate the volume in another region. |
 | 503 on `/api/snomed/rf2/*` | Index not ready or DB missing on `/data` |
 | Machine OOM on first index | Use a prebuilt DB or raise `[[vm]] memory` in `fly.toml` |
 | CORS errors from Lovable UI | Set `FLY_PUBLIC_CORS_ORIGINS` |
