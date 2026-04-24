@@ -181,6 +181,17 @@ Do not connect real clinical systems or ingest real patient records without appr
 6. **Vite can race the API on first paint.**  
    A very early **`/api/dmd/health`** via the dev proxy may log **`ECONNREFUSED` to 8787** until **`API server listening`** appears; a single refresh is usually enough.
 
+## Session Update (HES at scale: free search + API reload discipline)
+
+1. **Pair paid POSTs with a free GET when operators need wallet-less smoke tests.**  
+   **`GET /api/neighbourhood/scale/search`** mirrors the paid **`POST …/scale/search`** FTS / prefix / auto logic (query params: `q`, `dataset`, `limit`, `offset`, `mode`). The **HES at scale** page exposes **Search (free)** next to the x402 button so demos can validate SQLite + FTS before turning on payments.
+
+2. **Express `Cannot GET …` / HTTP 404 on a new route almost always means a stale Node process.**  
+   If the API was started before the route existed, the handler is never registered. **Restart `npm run server` or `npm run dev:full`** after pulling. The UI now surfaces an explicit hint when free search returns **404**.
+
+3. **Neighbourhood “Hackathon integration” SNOMED bullet list.**  
+   Removing server **`references`** from **`getIntegrationContext()`** is not enough if the browser keeps old JSON; stripping the **`<ul>`** render in **`NhsNeighbourhoodInsightsApp`** guarantees the four static concept codes never reappear from stale payloads.
+
 ## Session Update (CDR Rollout: Arc + USDC)
 
 1. **Route discovery must be updated in three places, not one.**  

@@ -109,6 +109,9 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 14. **Snowstorm UK import pitfalls (content mismatch root cause)**  
     SNOMED lookup `404 not-found` with diagnostics `Code '<id>' not found for system 'http://snomed.info/sct'` is often a **loaded-content issue**, not a wrong system URI. We observed failed UK RF2 imports on constrained Docker memory and branch-lock/partial-commit states. Practical recovery: raise Elasticsearch/Snowstorm heap, clear stuck partial commits, and re-import UK release before evaluating lookup behavior.
 
+15. **HES at scale: free GET search vs paid POST — restart after route changes**  
+    **`GET /api/neighbourhood/scale/search`** (no x402) shares implementation with **`POST /api/neighbourhood/scale/search`**. If the browser shows **HTTP 404** for the free button, the API process usually predates the route — **restart the server**. Thirdweb middleware only wraps **POST** neighbourhood paths, so GET is not payment-gated.
+
 ---
 
 ## 4. Best practices (checklist)
@@ -175,4 +178,4 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 
 ---
 
-*Last updated: Added dm+d upstream operations (wardle vs dev stack, `data/dmd-service`, stub) alongside prior dm+d search strictness + Snowstorm UK import notes; includes Arc Testnet + Circle batching incident warning and `@x402` payload-shape / tx-log learnings — Clinical Arc, Arc Testnet, x402.*
+*Last updated: Added HES at scale free GET search + API restart note (item 15); prior items cover dm+d upstream, Snowstorm UK import, Vite/API race, x402 — Clinical Arc, Arc Testnet, x402.*

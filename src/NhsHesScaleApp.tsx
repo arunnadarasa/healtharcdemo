@@ -156,6 +156,12 @@ function HesScaleGrid({
         free?: boolean
       }
       if (!res.ok || json.ok === false) {
+        if (res.status === 404) {
+          setSearchOut(
+            'HTTP 404 — GET /api/neighbourhood/scale/search is missing on this API process. Restart npm run server (or dev:full) so the latest neighbourhood router is loaded.',
+          )
+          return
+        }
         setSearchOut(typeof json.error === 'string' ? json.error : `HTTP ${res.status}`)
         return
       }
