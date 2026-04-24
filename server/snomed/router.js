@@ -1,6 +1,11 @@
 import express from 'express'
 import { fhirLookupSnomedConcept, getSnowstormStatus } from './snowstormClient.js'
-import { getRf2Concept, getRf2Health, searchRf2Concepts } from './rf2LocalDb.js'
+import {
+  getRf2Concept,
+  getRf2Health,
+  Rf2IndexNotReadyError,
+  searchRf2Concepts,
+} from './rf2LocalDb.js'
 
 /**
  * Read-only SNOMED / Snowstorm routes (no x402 — public terminology lookups).
@@ -74,6 +79,13 @@ export function createSnomedRouter() {
       const out = await searchRf2Concepts(q, Number.parseInt(limit, 10), Number.parseInt(offset, 10))
       return res.json(out)
     } catch (e) {
+      if (e instanceof Rf2IndexNotReadyError) {
+        res.set('Retry-After', '5')
+        return res.status(503).json({
+          error: String(e?.message ?? e),
+          buildStatus: e.buildStatus,
+        })
+      }
       return res.status(500).json({ error: String(e?.message ?? e) })
     }
   })
@@ -88,6 +100,13 @@ export function createSnomedRouter() {
       if (!concept) return res.status(404).json({ error: 'Concept not found in local RF2 index' })
       return res.json(concept)
     } catch (e) {
+      if (e instanceof Rf2IndexNotReadyError) {
+        res.set('Retry-After', '5')
+        return res.status(503).json({
+          error: String(e?.message ?? e),
+          buildStatus: e.buildStatus,
+        })
+      }
       return res.status(500).json({ error: String(e?.message ?? e) })
     }
   })

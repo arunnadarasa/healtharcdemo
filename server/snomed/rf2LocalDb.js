@@ -21,6 +21,15 @@ let _lastBuild = {
   error: null,
 }
 
+/** Thrown when RF2 SQLite is not ready yet (build running or not started). */
+export class Rf2IndexNotReadyError extends Error {
+  constructor(buildStatus) {
+    super('RF2 index is building or not ready yet. Poll GET /api/snomed/rf2/health and retry.')
+    this.name = 'Rf2IndexNotReadyError'
+    this.buildStatus = buildStatus
+  }
+}
+
 function rf2BaseDir() {
   return (process.env.SNOMED_RF2_BASE_DIR || '').trim() || DEFAULT_RF2_BASE_DIR
 }
@@ -370,46 +379,102 @@ async function rebuildIndex(files, manifest) {
   setMeta('rf2_build_status', JSON.stringify(_lastBuild))
 }
 
-export async function ensureRf2Index() {
-  if (_buildPromise) return _buildPromise
+function parseBuildStatusMeta() {
+  const raw = getMeta('rf2_build_status')
+  if (!raw) return { startedAt: null, finishedAt: null, status: 'idle', error: null }
+  try {
+    const j = JSON.parse(raw)
+    return {
+      startedAt: j.startedAt ?? null,
+      finishedAt: j.finishedAt ?? null,
+      status: j.status || 'idle',
+      error: j.error ?? null,
+    }
+  } catch {
+    return { startedAt: null, finishedAt: null, status: 'idle', error: null }
+  }
+}
+
+/** If DB says "running" but no in-process build, mark error so a new build can start. */
+function recoverStaleBuildState() {
+  if (_buildPromise) return
+  const raw = getMeta('rf2_build_status')
+  if (!raw) return
+  try {
+    const s = JSON.parse(raw)
+    if (s.status === 'running') {
+      _lastBuild = {
+        startedAt: s.startedAt ?? null,
+        finishedAt: new Date().toISOString(),
+        status: 'error',
+        error:
+          'Previous index build did not finish (process restart or interrupted build). A new build will start when needed.',
+      }
+      setMeta('rf2_build_status', JSON.stringify(_lastBuild))
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function needsRf2Rebuild(files, manifest) {
+  const existing = getMeta('rf2_manifest')
+  const bs = parseBuildStatusMeta()
+  if (!getMeta('rf2_stats')) return true
+  if (existing !== manifest) return true
+  if (bs.status !== 'ready') return true
+  return false
+}
+
+export function isRf2IndexReady() {
+  const bs = parseBuildStatusMeta()
+  return bs.status === 'ready' && Boolean(getMeta('rf2_manifest')) && Boolean(getMeta('rf2_stats'))
+}
+
+/**
+ * Starts a background rebuild when manifest/stats/status require it.
+ * Does not await completion (HTTP handlers must not block on full UK ingest).
+ */
+export function kickoffRf2IndexBuildIfNeeded() {
+  recoverStaleBuildState()
+  if (_buildPromise) return
+
+  const base = rf2BaseDir()
+  if (!fs.existsSync(base)) return
+  const files = findSnapshotFiles(base)
+  if (files.length === 0) return
+  const manifest = buildManifest(files)
+  if (!needsRf2Rebuild(files, manifest)) return
+
   _buildPromise = (async () => {
-    const base = rf2BaseDir()
-    if (!fs.existsSync(base)) {
-      throw new Error(`SNOMED RF2 base path not found: ${base}`)
-    }
-    const files = findSnapshotFiles(base)
-    if (files.length === 0) {
-      throw new Error(`No RF2 Snapshot concept/description/relationship files found under ${base}`)
-    }
-    const manifest = buildManifest(files)
-    const existing = getMeta('rf2_manifest')
-    if (existing !== manifest) {
+    try {
       await rebuildIndex(files, manifest)
-    } else if (getMeta('rf2_build_status') == null) {
-      setMeta(
-        'rf2_build_status',
-        JSON.stringify({
-          startedAt: null,
-          finishedAt: null,
-          status: 'ready',
-          error: null,
-        }),
-      )
+    } catch (error) {
+      _lastBuild = {
+        startedAt: _lastBuild.startedAt,
+        finishedAt: new Date().toISOString(),
+        status: 'error',
+        error: String(error?.message || error),
+      }
+      setMeta('rf2_build_status', JSON.stringify(_lastBuild))
+    } finally {
+      _buildPromise = null
     }
   })()
-  try {
-    await _buildPromise
-  } catch (error) {
-    _lastBuild = {
-      startedAt: _lastBuild.startedAt,
-      finishedAt: new Date().toISOString(),
-      status: 'error',
-      error: String(error?.message || error),
-    }
-    setMeta('rf2_build_status', JSON.stringify(_lastBuild))
-    throw error
-  } finally {
-    _buildPromise = null
+}
+
+function assertRf2IndexReadyForQueries() {
+  const base = rf2BaseDir()
+  if (!fs.existsSync(base)) {
+    throw new Error(`SNOMED RF2 base path not found: ${base}`)
+  }
+  const files = findSnapshotFiles(base)
+  if (files.length === 0) {
+    throw new Error(`No RF2 Snapshot concept/description/relationship files found under ${base}`)
+  }
+  kickoffRf2IndexBuildIfNeeded()
+  if (!isRf2IndexReady()) {
+    throw new Rf2IndexNotReadyError(parseBuildStatusMeta())
   }
 }
 
@@ -441,10 +506,64 @@ function fsnFor(conceptId) {
   return row ? row.term : null
 }
 
+function placeholders(n) {
+  return Array.from({ length: n }, () => '?').join(',')
+}
+
+/** Bulk-load preferred synonym + FSN per conceptId (avoids N+1 in search / concept hierarchy). */
+function preferredFsnMapsForConceptIds(db, conceptIds) {
+  const fsnById = new Map()
+  const preferredById = new Map()
+  const uniq = [...new Set(conceptIds.map((x) => String(x)))].filter(Boolean)
+  if (uniq.length === 0) return { fsnById, preferredById }
+
+  const inList = placeholders(uniq.length)
+  const descRows = db
+    .prepare(
+      `SELECT conceptId, typeId, languageCode, term
+       FROM rf2_descriptions
+       WHERE active = 1
+         AND typeId IN (?, ?)
+         AND conceptId IN (${inList})`,
+    )
+    .all(FSN_TYPE_ID, SYNONYM_TYPE_ID, ...uniq)
+
+  const fsnCandidates = new Map()
+  const preferredCandidates = new Map()
+  for (const row of descRows) {
+    const conceptId = String(row.conceptId)
+    const term = String(row.term || '')
+    if (!term) continue
+    if (String(row.typeId) === FSN_TYPE_ID) {
+      const arr = fsnCandidates.get(conceptId) || []
+      arr.push(term)
+      fsnCandidates.set(conceptId, arr)
+    } else if (String(row.typeId) === SYNONYM_TYPE_ID) {
+      const arr = preferredCandidates.get(conceptId) || []
+      arr.push({ term, languageCode: String(row.languageCode || '') })
+      preferredCandidates.set(conceptId, arr)
+    }
+  }
+  for (const [conceptId, arr] of fsnCandidates.entries()) {
+    arr.sort((a, b) => a.length - b.length)
+    fsnById.set(conceptId, arr[0] || null)
+  }
+  for (const [conceptId, arr] of preferredCandidates.entries()) {
+    arr.sort((a, b) => {
+      const aRank = a.languageCode === 'en' ? 0 : 1
+      const bRank = b.languageCode === 'en' ? 0 : 1
+      if (aRank !== bRank) return aRank - bRank
+      return a.term.length - b.term.length
+    })
+    preferredById.set(conceptId, arr[0]?.term || null)
+  }
+  return { fsnById, preferredById }
+}
+
 export async function searchRf2Concepts(query, limit = 25, offset = 0) {
-  await ensureRf2Index()
   const q = String(query || '').trim()
   if (!q) return { query: q, count: 0, rows: [] }
+  assertRf2IndexReadyForQueries()
   const db = openDb()
   const lim = Math.max(1, Math.min(200, Number.parseInt(String(limit), 10) || 25))
   const off = Math.max(0, Number.parseInt(String(offset), 10) || 0)
@@ -459,23 +578,40 @@ export async function searchRf2Concepts(query, limit = 25, offset = 0) {
     : null
   const rows = db
     .prepare(
-      `SELECT conceptId,
-              MIN(bm25(rf2_descriptions_fts)) as score,
-              COUNT(*) as matchCount
-       FROM rf2_descriptions_fts
-       WHERE rf2_descriptions_fts MATCH ?
-       GROUP BY conceptId
-       ORDER BY score
+      `WITH concept_hits AS (
+         SELECT conceptId, COUNT(*) AS matchCount
+         FROM rf2_descriptions_fts
+         WHERE rf2_descriptions_fts MATCH ?
+         GROUP BY conceptId
+       )
+       SELECT conceptId, 0.0 AS score, matchCount
+       FROM concept_hits
+       ORDER BY matchCount DESC, conceptId
        LIMIT ? OFFSET ?`,
     )
     .all(q, lim, off)
 
+  const conceptIds = rows.map((r) => String(r.conceptId))
+  let conceptById = new Map()
+  let fsnById = new Map()
+  let preferredById = new Map()
+  if (conceptIds.length > 0) {
+    const inList = placeholders(conceptIds.length)
+    const conceptRows = db
+      .prepare(`SELECT conceptId, active, moduleId, effectiveTime FROM rf2_concepts WHERE conceptId IN (${inList})`)
+      .all(...conceptIds)
+    conceptById = new Map(conceptRows.map((r) => [String(r.conceptId), r]))
+    const maps = preferredFsnMapsForConceptIds(db, conceptIds)
+    fsnById = maps.fsnById
+    preferredById = maps.preferredById
+  }
+
   const mapped = rows.map((row) => {
-    const concept = db.prepare('SELECT active, moduleId, effectiveTime FROM rf2_concepts WHERE conceptId = ?').get(row.conceptId)
+    const concept = conceptById.get(String(row.conceptId))
     return {
       conceptId: row.conceptId,
-      preferredTerm: preferredTermFor(row.conceptId),
-      fsn: fsnFor(row.conceptId),
+      preferredTerm: preferredById.get(String(row.conceptId)) ?? null,
+      fsn: fsnById.get(String(row.conceptId)) ?? null,
       active: concept ? concept.active === 1 : false,
       moduleId: concept?.moduleId ?? null,
       effectiveTime: concept?.effectiveTime ?? null,
@@ -485,10 +621,11 @@ export async function searchRf2Concepts(query, limit = 25, offset = 0) {
   })
 
   if (sctidRow && !mapped.some((r) => r.conceptId === q)) {
+    const { fsnById: f2, preferredById: p2 } = preferredFsnMapsForConceptIds(db, [q])
     mapped.unshift({
       conceptId: q,
-      preferredTerm: preferredTermFor(q),
-      fsn: fsnFor(q),
+      preferredTerm: p2.get(String(q)) ?? null,
+      fsn: f2.get(String(q)) ?? null,
       active: sctidRow.active === 1,
       moduleId: sctidRow.moduleId ?? null,
       effectiveTime: sctidRow.effectiveTime ?? null,
@@ -501,9 +638,9 @@ export async function searchRf2Concepts(query, limit = 25, offset = 0) {
 }
 
 export async function getRf2Concept(sctid) {
-  await ensureRf2Index()
   const id = String(sctid || '').trim()
   if (!/^\d+$/.test(id)) return null
+  assertRf2IndexReadyForQueries()
   const db = openDb()
   const concept = db
     .prepare(
@@ -523,7 +660,7 @@ export async function getRf2Concept(sctid) {
     )
     .all(id, FSN_TYPE_ID, SYNONYM_TYPE_ID)
 
-  const parents = db
+  const parentRows = db
     .prepare(
       `SELECT r.destinationId as conceptId
        FROM rf2_relationships r
@@ -531,13 +668,8 @@ export async function getRf2Concept(sctid) {
        ORDER BY r.destinationId`,
     )
     .all(id, ISA_TYPE_ID)
-    .map((row) => ({
-      conceptId: row.conceptId,
-      preferredTerm: preferredTermFor(row.conceptId),
-      fsn: fsnFor(row.conceptId),
-    }))
 
-  const children = db
+  const childRows = db
     .prepare(
       `SELECT r.sourceId as conceptId
        FROM rf2_relationships r
@@ -546,11 +678,25 @@ export async function getRf2Concept(sctid) {
        LIMIT 300`,
     )
     .all(id, ISA_TYPE_ID)
-    .map((row) => ({
-      conceptId: row.conceptId,
-      preferredTerm: preferredTermFor(row.conceptId),
-      fsn: fsnFor(row.conceptId),
-    }))
+
+  const relatedIds = [
+    id,
+    ...parentRows.map((r) => String(r.conceptId)),
+    ...childRows.map((r) => String(r.conceptId)),
+  ]
+  const { fsnById, preferredById } = preferredFsnMapsForConceptIds(db, relatedIds)
+
+  const parents = parentRows.map((row) => ({
+    conceptId: row.conceptId,
+    preferredTerm: preferredById.get(String(row.conceptId)) ?? null,
+    fsn: fsnById.get(String(row.conceptId)) ?? null,
+  }))
+
+  const children = childRows.map((row) => ({
+    conceptId: row.conceptId,
+    preferredTerm: preferredById.get(String(row.conceptId)) ?? null,
+    fsn: fsnById.get(String(row.conceptId)) ?? null,
+  }))
 
   return {
     conceptId: concept.conceptId,
@@ -559,8 +705,8 @@ export async function getRf2Concept(sctid) {
     effectiveTime: concept.effectiveTime,
     definitionStatusId: concept.definitionStatusId,
     sourcePackage: concept.sourcePackage,
-    preferredTerm: preferredTermFor(id),
-    fsn: fsnFor(id),
+    preferredTerm: preferredById.get(String(id)) ?? null,
+    fsn: fsnById.get(String(id)) ?? null,
     descriptions,
     parents,
     children,
@@ -570,6 +716,9 @@ export async function getRf2Concept(sctid) {
 export async function getRf2Health() {
   const base = rf2BaseDir()
   const configured = fs.existsSync(base)
+  if (configured) {
+    kickoffRf2IndexBuildIfNeeded()
+  }
   const buildStatusRaw = getMeta('rf2_build_status')
   const statsRaw = getMeta('rf2_stats')
   const manifestRaw = getMeta('rf2_manifest')
@@ -587,6 +736,8 @@ export async function getRf2Health() {
     dbPath: dbPath(),
     fileCount,
     buildStatus,
+    indexBuildInFlight: Boolean(_buildPromise),
+    indexReady: isRf2IndexReady(),
     stats,
     hasIndexedManifest: Boolean(manifestRaw),
     supports: {

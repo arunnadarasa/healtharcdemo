@@ -277,6 +277,32 @@ Do not connect real clinical systems or ingest real patient records without appr
 4. **First index build time is a deployment concern; query latency is then cheap.**  
    On full UK+INT packages, initial ingest can take minutes; afterward, local FTS/SQL lookups are fast enough for live demo interactions.
 
+## Session Update (Local RF2: performance, UX, and ops)
+
+1. **Do not block HTTP handlers on a full RF2 ingest.**  
+   Awaiting `ensureRf2Index()` inside `/rf2/search` and `/rf2/concept` ties the browser to a multi-hour first build. Kick indexing in the background, return **503** with `buildStatus` until `indexReady`, and expose `indexBuildInFlight` / `indexReady` on `/rf2/health` so the UI can poll and show status.
+
+2. **Recover stale `rf2_build_status: "running"` in SQLite after process restarts.**  
+   If meta says running but no in-process worker exists, mark an error or reset so a new build can start; otherwise health can show “running” forever while queries never complete.
+
+3. **FTS5 `bm25()` has strict valid contexts.**  
+   Wrapping `bm25()` inside aggregates like `MIN(bm25(...))` can error with “unable to use function bm25 in the requested context”. Prefer ranking per-row (or skip BM25 and use `MATCH` + `GROUP BY` + counts for demo-grade relevance).
+
+4. **Heavy queries can block the Node event loop even when “async”.**  
+   `better-sqlite3` runs synchronously. A pathological FTS + window query can freeze all routes (including `/rf2/health`). Keep search SQL bounded and test with `curl` timeouts during development.
+
+5. **Search result enrichment is an N+1 trap.**  
+   After FTS returns concept IDs, resolving `preferredTerm` / `fsn` per row with separate prepared statements scales poorly (seconds per page). Bulk-fetch descriptions for `IN (...)` and pick FSN/synonym in memory.
+
+6. **Concept hierarchy enrichment has the same N+1 shape.**  
+   Mapping parents/children with `preferredTermFor` / `fsnFor` per related concept explodes cost (hundreds of queries for asthma-like nodes). Bulk-resolve terms for `[conceptId, ...parentIds, ...childIds]` once.
+
+7. **Perceived “button does nothing” often means slow sync work, not a dead handler.**  
+   Add explicit loading/disabled state on RF2 actions so operators see progress while SQLite work runs.
+
+8. **Remove temporary ingest/NDJSON instrumentation after the fix is verified.**  
+   Debug `fetch` to local ingest ports and append-only log files should not ship in production paths; keep the behavioral fixes and optional health UX.
+
 ## Session Update (dm+d UI dataset label)
 
 1. **Do not hardcode operator-specific filesystem paths in React.**  

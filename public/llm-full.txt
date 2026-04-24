@@ -2,7 +2,7 @@
 
 **Purpose:** Single file to paste into an LLM system prompt, upload to a coding agent, or feed RAG — **full orientation** to this repository.
 
-**Generated:** 2026-04-24T06:35:01.239Z (re-run `npm run build:llm` after doc edits)
+**Generated:** 2026-04-24T18:12:10.754Z (re-run `npm run build:llm` after doc edits)
 
 **Download (running app):** `/llm-full.txt` from the dev server or production site.
 
@@ -118,7 +118,7 @@ If the UI shows **`Cannot POST /api/...`**, restart the backend on **8787**. Qui
 
 - **SNOMED URI:** Keep FHIR lookup `system` as **`http://snomed.info/sct`**. If a concept returns not-found, check local Snowstorm content/version state before changing URI logic.
 - **Snowstorm imports:** UK RF2 loads may run for extended periods and are memory-sensitive; allocate sufficient heap to Elasticsearch/Snowstorm and monitor import job state to completion.
-- **Local RF2 index path:** If you need deterministic local browse/search without Docker/Elasticsearch, use the RF2 endpoints (`/api/snomed/rf2/*`). First index build is file-size dependent (can take minutes on full UK+INT packages), then subsequent queries are local SQLite lookups.
+- **Local RF2 index path:** If you need deterministic local browse/search without Docker/Elasticsearch, use the RF2 endpoints (`/api/snomed/rf2/*`). The first full-package ingest runs **in the background**; until the index is ready, **`/rf2/search`** and **`/rf2/concept`** return **503** with `buildStatus` (poll **`/rf2/health`** for `indexReady` / `indexBuildInFlight`). Ingest duration is file-size dependent (can be long on full UK+INT); after `indexReady`, searches are local SQLite + FTS.
 - **dm+d strict matching:** Some upstream `wardle/dmd` queries are case/exact-match sensitive. This repo now tries multiple query variants and returns attempted/matched query metadata in dm+d responses.
 - **Payment troubleshooting:** Distinguish wallet USDC from Gateway available balance, especially in Circle mode where Gateway deposits are required for paid x402 flows.
 
@@ -200,13 +200,13 @@ Use `/nhs/onchain-runner` for hackathon evidence in two lanes:
 
 ### SNOMED local RF2 browser (full package)
 
-- SNOMED page now includes a **local RF2 browser pane** with search-by-term, direct SCTID lookup, and tabbed concept details (summary, descriptions, hierarchy).
+- SNOMED page includes a **local RF2 browser pane** with search-by-term, direct SCTID lookup, tabbed concept details (summary, descriptions, hierarchy), and **loading/disabled** controls while RF2 API calls run.
 - Backend local RF2 endpoints:
-  - `GET /api/snomed/rf2/health`
-  - `GET /api/snomed/rf2/search?q=...&limit=...`
-  - `GET /api/snomed/rf2/concept/:sctid`
-- Data source expectation: extracted RF2 package root at `SNOMED_RF2_BASE_DIR` (default hackathon local path).
-- Search behavior: active description FTS index for word/SCTID discovery; concept details include FSN/PT heuristics plus active IS-A parent/child snippets for quick navigation.
+  - `GET /api/snomed/rf2/health` — includes `indexReady`, `indexBuildInFlight`, `buildStatus`, and stats when indexed.
+  - `GET /api/snomed/rf2/search?q=...&limit=...` — **503** while index is building; otherwise FTS `MATCH` + grouped concept hits with bulk term resolution (not per-row N+1).
+  - `GET /api/snomed/rf2/concept/:sctid` — **503** while not ready; otherwise descriptions + IS-A parents/children with **bulk** FSN/preferred-term resolution for related concepts.
+- Data source: extracted RF2 package root at `SNOMED_RF2_BASE_DIR` (override in `.env`; default may point at a local Downloads path — set explicitly in CI or other machines).
+- Search relevance for demos: results ordered by **match count** per concept (not BM25), which is predictable and fast on large UK corpora.
 
 ### dm+d local dataset (UI + server)
 

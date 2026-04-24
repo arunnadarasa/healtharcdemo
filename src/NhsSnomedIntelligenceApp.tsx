@@ -107,6 +107,7 @@ function SnomedIntelligenceGrid({
   const [rf2ConceptOut, setRf2ConceptOut] = useState<Rf2ConceptDetails | null>(null)
   const [rf2DetailTab, setRf2DetailTab] = useState<'summary' | 'descriptions' | 'hierarchy'>('summary')
   const [rf2Error, setRf2Error] = useState('')
+  const [rf2Busy, setRf2Busy] = useState<'idle' | 'health' | 'search' | 'concept'>('idle')
 
   const [searchQ, setSearchQ] = useState('asthma')
   const [dataset, setDataset] = useState<'all' | 'ae' | 'op' | 'apc'>('all')
@@ -116,12 +117,15 @@ function SnomedIntelligenceGrid({
 
   const runRf2Health = useCallback(async () => {
     setRf2Error('')
+    setRf2Busy('health')
     try {
       const res = await fetch('/api/snomed/rf2/health')
       const j = await res.json()
       setRf2HealthOut(JSON.stringify(j, null, 2))
     } catch (e) {
       setRf2Error(String((e as Error)?.message || e))
+    } finally {
+      setRf2Busy('idle')
     }
   }, [])
 
@@ -132,11 +136,16 @@ function SnomedIntelligenceGrid({
       return
     }
     setRf2Error('')
+    setRf2Busy('search')
     try {
       const res = await fetch(`/api/snomed/rf2/search?q=${encodeURIComponent(q)}&limit=30`)
       const j = await res.json()
       if (!res.ok) {
-        setRf2Error(j?.error || `HTTP ${res.status}`)
+        const extra =
+          res.status === 503 && j?.buildStatus
+            ? ` (build: ${String(j.buildStatus.status)}${j.buildStatus.error ? ` — ${String(j.buildStatus.error)}` : ''})`
+            : ''
+        setRf2Error((j?.error || `HTTP ${res.status}`) + extra)
         return
       }
       const rows = Array.isArray(j?.rows) ? (j.rows as Rf2SearchRow[]) : []
@@ -146,6 +155,8 @@ function SnomedIntelligenceGrid({
       }
     } catch (e) {
       setRf2Error(String((e as Error)?.message || e))
+    } finally {
+      setRf2Busy('idle')
     }
   }, [rf2Query])
 
@@ -153,12 +164,17 @@ function SnomedIntelligenceGrid({
     const id = (idFromRow || rf2Selected || '').trim()
     if (!id) return
     setRf2Error('')
+    setRf2Busy('concept')
     try {
       const res = await fetch(`/api/snomed/rf2/concept/${encodeURIComponent(id)}`)
       const j = await res.json()
       if (!res.ok) {
         setRf2ConceptOut(null)
-        setRf2Error(j?.error || `HTTP ${res.status}`)
+        const extra =
+          res.status === 503 && j?.buildStatus
+            ? ` (build: ${String(j.buildStatus.status)}${j.buildStatus.error ? ` — ${String(j.buildStatus.error)}` : ''})`
+            : ''
+        setRf2Error((j?.error || `HTTP ${res.status}`) + extra)
         return
       }
       setRf2ConceptOut(j as Rf2ConceptDetails)
@@ -167,6 +183,8 @@ function SnomedIntelligenceGrid({
     } catch (e) {
       setRf2ConceptOut(null)
       setRf2Error(String((e as Error)?.message || e))
+    } finally {
+      setRf2Busy('idle')
     }
   }, [rf2Selected])
 
@@ -380,7 +398,7 @@ function SnomedIntelligenceGrid({
           details (FSN, synonyms, hierarchy snippets).
         </p>
         <div className="actions" style={{ alignItems: 'center' }}>
-          <button type="button" className="secondary" onClick={() => void runRf2Health()}>
+          <button type="button" className="secondary" onClick={() => void runRf2Health()} disabled={rf2Busy !== 'idle'}>
             GET /api/snomed/rf2/health
           </button>
           <input
@@ -388,14 +406,23 @@ function SnomedIntelligenceGrid({
             onChange={(e) => setRf2Query(e.target.value)}
             placeholder="e.g. pregnancy or 289908002"
           />
-          <button type="button" className="secondary" onClick={() => void runRf2Search()}>
+          <button type="button" className="secondary" onClick={() => void runRf2Search()} disabled={rf2Busy !== 'idle'}>
             Search RF2
           </button>
           <input value={rf2Selected} onChange={(e) => setRf2Selected(e.target.value)} placeholder="SCTID" />
-          <button type="button" className="secondary" onClick={() => void runRf2Lookup()}>
+          <button type="button" className="secondary" onClick={() => void runRf2Lookup()} disabled={rf2Busy !== 'idle'}>
             Load concept
           </button>
         </div>
+        {rf2Busy !== 'idle' ? (
+          <p className="note" style={{ color: '#1d4ed8' }}>
+            {rf2Busy === 'health'
+              ? 'Checking RF2 index health...'
+              : rf2Busy === 'search'
+                ? 'Searching local RF2 index...'
+                : 'Loading RF2 concept details...'}
+          </p>
+        ) : null}
         {rf2Error ? <p className="note" style={{ color: '#b45309' }}>{rf2Error}</p> : null}
         <div className="grid" style={{ gridTemplateColumns: 'minmax(280px, 1fr) minmax(420px, 1.5fr)' }}>
           <article className="card">
