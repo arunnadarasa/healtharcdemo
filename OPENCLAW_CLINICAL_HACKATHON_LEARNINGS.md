@@ -192,6 +192,12 @@ Do not connect real clinical systems or ingest real patient records without appr
 3. **Neighbourhood “Hackathon integration” SNOMED bullet list.**  
    Removing server **`references`** from **`getIntegrationContext()`** is not enough if the browser keeps old JSON; stripping the **`<ul>`** render in **`NhsNeighbourhoodInsightsApp`** guarantees the four static concept codes never reappear from stale payloads.
 
+4. **Paid x402 browser calls need a timeout long enough for slow SQLite + wallet steps.**  
+   **`nhsX402Fetch`** wraps **`fetch`** with **`AbortSignal.timeout`**. A **90s** default caused false “payment handshake timed out” on heavy **`/api/neighbourhood/scale/search`** POSTs. Default was raised to **5 minutes**; optional **`VITE_X402_REQUEST_TIMEOUT_MS`** (clamped in code) overrides. **Restart Vite** after env changes.
+
+5. **Show elapsed seconds on long HES operations.**  
+   Free search, paid search, and Featherless cross-summary on **HES at scale** now display a live **“… Ns elapsed”** line (same pattern as dm+d paid cards) so judges and operators see progress during multi‑minute waits.
+
 ## Session Update (CDR Rollout: Arc + USDC)
 
 1. **Route discovery must be updated in three places, not one.**  

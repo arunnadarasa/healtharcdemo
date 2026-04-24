@@ -91,6 +91,9 @@ function HesScaleGrid({
   const [summaryOut, setSummaryOut] = useState<string>('')
   const [lsoaFilter, setLsoaFilter] = useState('')
   const [busy, setBusy] = useState(false)
+  const [activeAction, setActiveAction] = useState<'' | 'free-search' | 'paid-search' | 'cross-summary'>('')
+  const [requestStartedAt, setRequestStartedAt] = useState<number | null>(null)
+  const [elapsedSec, setElapsedSec] = useState(0)
   const [txRows, setTxRows] = useState<NhsTxItem[]>(() => listNhsTxHistoryHesScale(session.network))
   const [txModeFilter, setTxModeFilter] = useState<TxModeFilter>('all')
   const [txPage, setTxPage] = useState(1)
@@ -103,6 +106,14 @@ function HesScaleGrid({
   useEffect(() => {
     refreshTxLog()
   }, [refreshTxLog])
+
+  useEffect(() => {
+    if (!busy || requestStartedAt == null) return
+    const id = setInterval(() => {
+      setElapsedSec(Math.max(0, Math.floor((Date.now() - requestStartedAt) / 1000)))
+    }, 250)
+    return () => clearInterval(id)
+  }, [busy, requestStartedAt])
 
   const filteredTxRows = txRows.filter((row) => {
     if (txModeFilter === 'all') return true
@@ -137,6 +148,9 @@ function HesScaleGrid({
 
   const runFreeSearch = async () => {
     setBusy(true)
+    setActiveAction('free-search')
+    setRequestStartedAt(Date.now())
+    setElapsedSec(0)
     setSearchOut('')
     try {
       const u = new URL('/api/neighbourhood/scale/search', window.location.origin)
@@ -170,6 +184,9 @@ function HesScaleGrid({
       setSearchOut(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(false)
+      setActiveAction('')
+      setRequestStartedAt(null)
+      setElapsedSec(0)
     }
   }
 
@@ -179,6 +196,9 @@ function HesScaleGrid({
       return
     }
     setBusy(true)
+    setActiveAction('paid-search')
+    setRequestStartedAt(Date.now())
+    setElapsedSec(0)
     setSearchOut('')
     try {
       const res = await apiPost<{
@@ -204,6 +224,9 @@ function HesScaleGrid({
       setSearchOut(formatSearchResultJson({ ...(res.data ?? {}), free: false }))
     } finally {
       setBusy(false)
+      setActiveAction('')
+      setRequestStartedAt(null)
+      setElapsedSec(0)
     }
   }
 
@@ -213,6 +236,9 @@ function HesScaleGrid({
       return
     }
     setBusy(true)
+    setActiveAction('cross-summary')
+    setRequestStartedAt(Date.now())
+    setElapsedSec(0)
     setSummaryOut('')
     try {
       const res = await apiPost<{ ok?: boolean; summary?: string; model?: string }>(
@@ -231,6 +257,9 @@ function HesScaleGrid({
       setSummaryOut(typeof s === 'string' ? s : JSON.stringify(res.data, null, 2))
     } finally {
       setBusy(false)
+      setActiveAction('')
+      setRequestStartedAt(null)
+      setElapsedSec(0)
     }
   }
 
@@ -420,6 +449,11 @@ function HesScaleGrid({
             Connect a wallet for paid search; free search does not require a wallet.
           </p>
         ) : null}
+        {busy && (activeAction === 'free-search' || activeAction === 'paid-search') ? (
+          <p className="note" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+            {activeAction === 'free-search' ? 'Running free search' : 'Running paid search'}… {elapsedSec}s elapsed
+          </p>
+        ) : null}
         {searchOut ? (
           <pre className="note" style={{ marginTop: '0.75rem', overflow: 'auto', maxHeight: '16rem' }}>
             {searchOut}
@@ -442,6 +476,11 @@ function HesScaleGrid({
         <button type="button" disabled={busy || !session.wallet} onClick={() => void runCrossSummary()}>
           Cross-dataset summary ({NEIGHBOURHOOD_X402_PRICE_DISPLAY})
         </button>
+        {busy && activeAction === 'cross-summary' ? (
+          <p className="note" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+            Running cross-dataset summary… {elapsedSec}s elapsed
+          </p>
+        ) : null}
         {summaryOut ? (
           <div className="note" style={{ marginTop: '0.75rem', whiteSpace: 'pre-wrap' }}>
             {summaryOut}

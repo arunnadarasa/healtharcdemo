@@ -225,7 +225,7 @@ export async function apiPost<T>(
       return {
         ok: false,
         error:
-          'Payment handshake timed out before completion. Keep the wallet approval window open and retry. If this repeats, increase VITE_X402_REQUEST_TIMEOUT_MS (default 90000).',
+          'Payment handshake timed out before completion. Keep the wallet approval window open and retry. If this repeats, increase VITE_X402_REQUEST_TIMEOUT_MS (default 300000 = 5 minutes; max 900000).',
         status: 0,
       }
     }

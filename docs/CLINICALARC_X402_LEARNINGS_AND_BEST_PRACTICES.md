@@ -112,6 +112,9 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 15. **HES at scale: free GET search vs paid POST — restart after route changes**  
     **`GET /api/neighbourhood/scale/search`** (no x402) shares implementation with **`POST /api/neighbourhood/scale/search`**. If the browser shows **HTTP 404** for the free button, the API process usually predates the route — **restart the server**. Thirdweb middleware only wraps **POST** neighbourhood paths, so GET is not payment-gated.
 
+16. **x402 client timeout vs slow HES / LLM**  
+    **`nhsArcPaidFetch`** applies **`AbortSignal.timeout`** to paid **`fetch`** (Circle or Thirdweb). Default was **90s**; large FTS/prefix work plus settlement can exceed that — default is now **300000 ms (5 min)** with env **`VITE_X402_REQUEST_TIMEOUT_MS`** up to **900000 ms**. The timeout message in **`nhsApi`** points at this knob. **Restart Vite** after changing **`VITE_*`**.
+
 ---
 
 ## 4. Best practices (checklist)
@@ -126,6 +129,7 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 - [ ] **Resource URL:** Vite proxy should forward host/proto (**`X-Forwarded-Host`**, **`X-Forwarded-Proto`**) so **`resourceUrl`** in **`settlePayment`** matches the browser origin (see **`resourceUrlFromReq`** in **`server/thirdwebX402.js`**).  
 - [ ] **`NHS_ENABLE_PAYMENT_GATE=false`** only for local debugging without wallet — don’t ship that for paid demos.  
 - [ ] After **any** `VITE_*` change, **restart Vite**.
+- [ ] Slow paid neighbourhood/HES calls: if **`signal timed out`** appears, raise **`VITE_X402_REQUEST_TIMEOUT_MS`** (defaults **300000** ms) or reduce query cost — not every failure is “wallet didn’t sign.”
 
 ### Engineering
 
@@ -178,4 +182,4 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 
 ---
 
-*Last updated: Added HES at scale free GET search + API restart note (item 15); prior items cover dm+d upstream, Snowstorm UK import, Vite/API race, x402 — Clinical Arc, Arc Testnet, x402.*
+*Last updated: Added x402 client timeout / `VITE_X402_REQUEST_TIMEOUT_MS` (item 16) + checklist line; item 15 HES free GET; dm+d upstream, Snowstorm, Vite/API race — Clinical Arc, Arc Testnet, x402.*

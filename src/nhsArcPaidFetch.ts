@@ -12,12 +12,13 @@ import type { X402FacilitatorId } from './x402FacilitatorPreference'
 
 const WALLET_MODE_KEY = 'nhs_wallet_mode_v1'
 const CIRCLE_WALLET_META_KEY = 'nhs_circle_wallet_meta_v1'
-const DEFAULT_X402_REQUEST_TIMEOUT_MS = 90000
+/** Default 5m — slow SQLite FTS / prefix on large HES + x402 handshake can exceed 90s. */
+const DEFAULT_X402_REQUEST_TIMEOUT_MS = 300000
 
 function getX402RequestTimeoutMs() {
   const raw = typeof import.meta.env.VITE_X402_REQUEST_TIMEOUT_MS === 'string' ? import.meta.env.VITE_X402_REQUEST_TIMEOUT_MS : ''
   const parsed = Number.parseInt(raw, 10)
-  if (Number.isFinite(parsed) && parsed >= 5000 && parsed <= 300000) return parsed
+  if (Number.isFinite(parsed) && parsed >= 5000 && parsed <= 900000) return parsed
   return DEFAULT_X402_REQUEST_TIMEOUT_MS
 }
 
