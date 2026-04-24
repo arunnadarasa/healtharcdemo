@@ -9,6 +9,9 @@ function getDmdServiceBaseUrl() {
   return process.env.DMD_SERVICE_URL?.trim() || ''
 }
 
+const DMD_UPSTREAM_UNREACHABLE_HINT =
+  'Upstream unreachable. Start wardle/dmd (or your dm+d API) so it listens on DMD_SERVICE_URL, or point DMD_SERVICE_URL at the correct base URL.'
+
 async function fetchJson(url, init = {}, timeoutMs = 12000) {
   const ctrl = new AbortController()
   const id = setTimeout(() => ctrl.abort(), timeoutMs)
@@ -22,6 +25,14 @@ async function fetchJson(url, init = {}, timeoutMs = 12000) {
       data = { raw: text }
     }
     return { ok: res.ok, status: res.status, data }
+  } catch (err) {
+    const msg = err?.name === 'AbortError' ? 'Request timed out' : err?.message || String(err)
+    return {
+      ok: false,
+      status: 0,
+      data: { error: msg, causeCode: err?.cause?.code },
+      networkError: true,
+    }
   } finally {
     clearTimeout(id)
   }
@@ -100,12 +111,15 @@ export function createDmdRouter(deps) {
       })
     }
     const probe = await fetchJson(`${baseUrl.replace(/\/$/, '')}/dmd/v1/lookup/BASIS_OF_NAME`, { method: 'GET' }, 10000)
+    const errMsg = probe.data && typeof probe.data === 'object' && 'error' in probe.data ? String(probe.data.error) : ''
     return res.status(200).json({
       ok: probe.ok,
       configured: true,
       service: 'dm+d',
       upstream: baseUrl,
       upstreamStatus: probe.status,
+      ...(errMsg ? { error: errMsg } : {}),
+      ...(probe.networkError || (!probe.ok && probe.status === 0) ? { hint: DMD_UPSTREAM_UNREACHABLE_HINT } : {}),
       time: nowIso(),
     })
   })
@@ -131,6 +145,7 @@ export function createDmdRouter(deps) {
         data: result.data,
         attemptedQueries: result.attemptedQueries ?? [],
         matchedQuery: result.matchedQuery ?? null,
+        ...(result.networkError || (!result.ok && result.status === 0) ? { hint: DMD_UPSTREAM_UNREACHABLE_HINT } : {}),
       })
     } catch (e) {
       return res.status(502).json({

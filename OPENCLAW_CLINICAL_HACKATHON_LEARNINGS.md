@@ -161,6 +161,26 @@ Do not connect real clinical systems or ingest real patient records without appr
 11. **Place paid outputs beside paid actions for better operator UX.**  
    Users expect paid lookup results directly under the paid lookup card; splitting free and paid output panes reduces scrolling and avoids confusion about which action produced which response.
 
+## Session Update (NHS dm+d: upstream wardle vs Arc dev stack)
+
+1. **`npm run dev:full` is not enough for dm+d pages.**  
+   The Arc app proxies to **`DMD_SERVICE_URL`** (commonly `http://localhost:8082`). That port is served by **[wardle/dmd](https://github.com/wardle/dmd)** (or a compatible API), not by Vite or `server/index.js`. If nothing listens there, Node’s `fetch` fails with **`ECONNREFUSED`** and operators often misread it as “restart the hackathon server.”
+
+2. **Treat upstream `fetch` failures as structured JSON, not HTML.**  
+   When the health probe’s `fetch` rejected, Express returned an HTML error page and the UI looked broken. Catching network/abort errors in the dm+d proxy and returning **`ok: false`** plus **`hint`** keeps `/api/dmd/health` and `/api/dmd/search` predictable for demos and agents.
+
+3. **Keep a gitignored wardle bundle under `data/dmd-service/`.**  
+   A typical local layout is **`dmd-server.jar` + `dmd.db`** (TRUD-derived, large). **`data/`** stays out of git (see `.gitignore`). Run **`npm run dmd:serve`** from the repo root to serve **`--db dmd.db`** on **8082** alongside **`npm run dev:full`**.
+
+4. **Optional stub for machines without TRUD.**  
+   **`npm run dmd:stub`** runs a tiny wardle-shaped server using **`docs/LOVABLE_DMD_DEMO_ITEMS.json`** only—fine for Lovable/hackathon UX when you cannot ship a real **`dmd.db`**. Do not run stub and wardle on the same port.
+
+5. **dm+d intelligence banner: prefer `hint` over bare `upstream` when the probe fails.**  
+   Showing only the configured URL when **`ok: false`** looked like the dataset was “ready.” Ordering **`hint` first** (then **`upstream`**) and avoiding a double period after “unavailable” reduced confusion on **`NhsDmdIntelligenceApp`**.
+
+6. **Vite can race the API on first paint.**  
+   A very early **`/api/dmd/health`** via the dev proxy may log **`ECONNREFUSED` to 8787** until **`API server listening`** appears; a single refresh is usually enough.
+
 ## Session Update (CDR Rollout: Arc + USDC)
 
 1. **Route discovery must be updated in three places, not one.**  

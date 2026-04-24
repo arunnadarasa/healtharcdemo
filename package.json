@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "server": "node server/index.js",
+    "dmd:stub": "node scripts/dmd-stub-server.mjs",
+    "dmd:serve": "sh -c 'cd data/dmd-service && java -jar dmd-server.jar serve --db dmd.db -p 8082'",
     "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
     "build:llm": "node scripts/build-llm-full.mjs",
     "smoke:nhs": "node scripts/nhs-smoke.mjs",

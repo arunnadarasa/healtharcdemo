@@ -72,17 +72,18 @@ function DmdIntelligenceGrid({
           | { configured?: boolean; upstream?: string; hint?: string }
           | Record<string, unknown>
         if (cancelled) return
-        if (payload && typeof payload.upstream === 'string' && payload.upstream.trim()) {
-          setDatasetSource(payload.upstream.trim())
-          return
-        }
+        // Prefer hint when present (e.g. upstream down); else show configured upstream URL.
         if (payload && typeof payload.hint === 'string' && payload.hint.trim()) {
           setDatasetSource(payload.hint.trim())
           return
         }
-        setDatasetSource('Source unavailable.')
+        if (payload && typeof payload.upstream === 'string' && payload.upstream.trim()) {
+          setDatasetSource(payload.upstream.trim())
+          return
+        }
+        setDatasetSource('Source unavailable')
       } catch {
-        if (!cancelled) setDatasetSource('Source unavailable.')
+        if (!cancelled) setDatasetSource('Source unavailable')
       }
     })()
     return () => {

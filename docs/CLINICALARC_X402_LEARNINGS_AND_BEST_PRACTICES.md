@@ -103,7 +103,10 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 12. **dm+d name search is strict on upstream (`wardle/dmd`)**  
     `GET /dmd/v1/search?s=...` can return **`Not Found`** for lowercase or non-exact forms even when a canonical term exists (e.g. `amlodipine` vs `Amlodipine`). In this repo, `/api/dmd/search` now performs fallback query variants (lower/upper/title-case) and returns `attemptedQueries` + `matchedQuery` to make UX and debugging clearer.
 
-13. **Snowstorm UK import pitfalls (content mismatch root cause)**  
+13. **dm+d upstream is a separate process from Arc (`8787` / Vite `5173`)**  
+    Set **`DMD_SERVICE_URL`** (e.g. `http://localhost:8082`) to a running wardle/dmd HTTP server. **`ECONNREFUSED`** on that URL means the wardle process (or stub) is not listening—not that `npm run dev:full` failed. Prefer a gitignored **`data/dmd-service/`** layout (`dmd-server.jar` + `dmd.db`) and **`npm run dmd:serve`**; use **`npm run dmd:stub`** only for demo names without TRUD. Health/search responses include a shared **`hint`** when the upstream is unreachable.
+
+14. **Snowstorm UK import pitfalls (content mismatch root cause)**  
     SNOMED lookup `404 not-found` with diagnostics `Code '<id>' not found for system 'http://snomed.info/sct'` is often a **loaded-content issue**, not a wrong system URI. We observed failed UK RF2 imports on constrained Docker memory and branch-lock/partial-commit states. Practical recovery: raise Elasticsearch/Snowstorm heap, clear stuck partial commits, and re-import UK release before evaluating lookup behavior.
 
 ---
@@ -172,4 +175,4 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 
 ---
 
-*Last updated: Added dm+d search strictness fallback learnings and Snowstorm UK import operational pitfalls; includes Arc Testnet + Circle batching incident warning and prior `@x402` payload-shape / tx-log learnings — Clinical Arc, Arc Testnet, x402.*
+*Last updated: Added dm+d upstream operations (wardle vs dev stack, `data/dmd-service`, stub) alongside prior dm+d search strictness + Snowstorm UK import notes; includes Arc Testnet + Circle batching incident warning and `@x402` payload-shape / tx-log learnings — Clinical Arc, Arc Testnet, x402.*
