@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "purpose": "Preset queries + synthesis payloads for Lovable / NHS UK dataset lane. Backend reads CSVs from repo `data/` with columns including `text` and `raw_data_id` (see `server/neighbourhood/nhsUkCsvSearch.js`). Mini fixtures: `docs/lovelyable-nhs-uk-fixtures/*.csv`.",
+    "purpose": "Preset queries + synthesis payloads for Lovable / NHS UK dataset lane. Backend reads CSVs from repo `data/` with columns including `text` and `raw_data_id` (see `server/neighbourhood/nhsUkCsvSearch.js`). Mini fixtures: `docs/lovable-nhs-uk-fixtures/*.csv`.",
     "dataset_ids": {
       "nhs_qa": "data/prepared_generated_data_for_nhs_uk_qa.csv",
       "nhs_conversations": "data/prepared_generated_data_for_nhs_uk_conversations.csv",

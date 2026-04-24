@@ -1,6 +1,6 @@
 # NHS UK dataset lane — Lovable sample seeds + tiny CSV fixtures
 
-The live API reads **three CSV files** under **`data/`** with headers including **`text`** and **`raw_data_id`** (`server/neighbourhood/nhsUkCsvSearch.js`). For Lovable smoke tests or a minimal cloud deploy, copy the **mini fixtures** from `docs/lovelyable-nhs-uk-fixtures/` to the **canonical filenames** below.
+The live API reads **three CSV files** under **`data/`** with headers including **`text`** and **`raw_data_id`** (`server/neighbourhood/nhsUkCsvSearch.js`). For Lovable smoke tests or a minimal cloud deploy, copy the **mini fixtures** from `docs/lovable-nhs-uk-fixtures/` to the **canonical filenames** below.
 
 ## Canonical `data/` filenames
 
@@ -11,9 +11,9 @@ The live API reads **three CSV files** under **`data/`** with headers including 
 | `medical_tasks` | `prepared_generated_data_for_medical_tasks.csv` |
 
 ```bash
-cp docs/lovelyable-nhs-uk-fixtures/mini-nhs_qa.csv data/prepared_generated_data_for_nhs_uk_qa.csv
-cp docs/lovelyable-nhs-uk-fixtures/mini-nhs_conversations.csv data/prepared_generated_data_for_nhs_uk_conversations.csv
-cp docs/lovelyable-nhs-uk-fixtures/mini-medical_tasks.csv data/prepared_generated_data_for_medical_tasks.csv
+cp docs/lovable-nhs-uk-fixtures/mini-nhs_qa.csv data/prepared_generated_data_for_nhs_uk_qa.csv
+cp docs/lovable-nhs-uk-fixtures/mini-nhs_conversations.csv data/prepared_generated_data_for_nhs_uk_conversations.csv
+cp docs/lovable-nhs-uk-fixtures/mini-medical_tasks.csv data/prepared_generated_data_for_medical_tasks.csv
 ```
 
 ## Preset API scenarios
