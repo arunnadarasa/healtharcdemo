@@ -1,0 +1,6 @@
+scenario_id,label,dataset,search_q,synthesis_query,synthesis_focus,synthesis_audience,max_context_rows
+uk-001,Triage language (Q/A),nhs_qa,chest pain red flags,chest pain red flags,Bullet list for a worried patient; when to seek emergency care,patient,12
+uk-002,Primary care follow-up,nhs_qa,blood pressure medication review,blood pressure medication review,Short clinician briefing: questions to ask and documentation hints,clinician,10
+uk-003,Conversation continuity,nhs_conversations,appointment booking,appointment booking,Summarize common patient intents and safe next-step wording,patient,12
+uk-004,Care task framing,medical_tasks,diabetes foot check,diabetes foot check,Task checklist style; explicit demo-only disclaimer,clinician,8
+uk-005,Mental health signposting,nhs_qa,anxiety self help,anxiety self help,Signposting tone; avoid diagnosis; encourage professional contact when appropriate,patient,12

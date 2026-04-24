@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "purpose": "Preset queries + synthesis payloads for Lovable / NHS UK dataset lane. Backend reads CSVs from repo `data/` with columns including `text` and `raw_data_id` (see `server/neighbourhood/nhsUkCsvSearch.js`). Mini fixtures: `docs/lovelyable-nhs-uk-fixtures/*.csv`.",
+    "dataset_ids": {
+      "nhs_qa": "data/prepared_generated_data_for_nhs_uk_qa.csv",
+      "nhs_conversations": "data/prepared_generated_data_for_nhs_uk_conversations.csv",
+      "medical_tasks": "data/prepared_generated_data_for_medical_tasks.csv"
+    },
+    "paid_search": {
+      "method": "POST",
+      "path": "/api/neighbourhood/uk/search",
+      "body": "{ \"q\": string, \"dataset\": \"nhs_qa\"|\"nhs_conversations\"|\"medical_tasks\", \"mode\": \"auto\"|\"prefix\"|\"contains\", \"limit\": 1-100, \"offset\": number }"
+    },
+    "paid_synthesis": {
+      "method": "POST",
+      "path": "/api/neighbourhood/uk/synthesis",
+      "body": "{ \"dataset\": string, \"query\": string, \"focus\": string, \"audience\": \"patient\"|\"clinician\", \"maxContextRows\": number }",
+      "server_requires": "FEATHERLESS_API_KEY"
+    },
+    "disclaimer": "Synthetic OpenGPT-style NHS UK demo text only — not clinical advice."
+  },
+  "scenarios": [
+    {
+      "id": "uk-001",
+      "label": "Triage language (Q/A)",
+      "dataset": "nhs_qa",
+      "search": { "q": "chest pain red flags", "mode": "auto", "limit": 20, "offset": 0 },
+      "synthesis": {
+        "query": "chest pain red flags",
+        "focus": "Bullet list for a worried patient; when to seek emergency care",
+        "audience": "patient",
+        "maxContextRows": 12
+      }
+    },
+    {
+      "id": "uk-002",
+      "label": "Primary care follow-up",
+      "dataset": "nhs_qa",
+      "search": { "q": "blood pressure medication review", "mode": "auto", "limit": 15, "offset": 0 },
+      "synthesis": {
+        "query": "blood pressure medication review",
+        "focus": "Short clinician briefing: questions to ask and documentation hints",
+        "audience": "clinician",
+        "maxContextRows": 10
+      }
+    },
+    {
+      "id": "uk-003",
+      "label": "Conversation continuity",
+      "dataset": "nhs_conversations",
+      "search": { "q": "appointment booking", "mode": "contains", "limit": 20, "offset": 0 },
+      "synthesis": {
+        "query": "appointment booking",
+        "focus": "Summarize common patient intents and safe next-step wording",
+        "audience": "patient",
+        "maxContextRows": 12
+      }
+    },
+    {
+      "id": "uk-004",
+      "label": "Care task framing",
+      "dataset": "medical_tasks",
+      "search": { "q": "diabetes foot check", "mode": "auto", "limit": 20, "offset": 0 },
+      "synthesis": {
+        "query": "diabetes foot check",
+        "focus": "Task checklist style; explicit demo-only disclaimer",
+        "audience": "clinician",
+        "maxContextRows": 8
+      }
+    },
+    {
+      "id": "uk-005",
+      "label": "Mental health signposting",
+      "dataset": "nhs_qa",
+      "search": { "q": "anxiety self help", "mode": "auto", "limit": 20, "offset": 0 },
+      "synthesis": {
+        "query": "anxiety self help",
+        "focus": "Signposting tone; avoid diagnosis; encourage professional contact when appropriate",
+        "audience": "patient",
+        "maxContextRows": 12
+      }
+    }
+  ],
+  "quick_search_strings": [
+    "chest pain red flags",
+    "blood pressure",
+    "appointment",
+    "diabetes",
+    "headache",
+    "vaccination"
+  ]
+}
