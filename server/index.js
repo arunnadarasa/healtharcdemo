@@ -46,34 +46,6 @@ import { createCdrRouter } from './cdr/router.js'
 const app = express()
 /** So `req.protocol` / forwarded headers match the browser origin when Vite proxies (localhost:5173 → 8787). */
 app.set('trust proxy', 1)
-
-/** Optional CORS for browser → API (e.g. Fly + Lovable). Comma-separated origins; unset = disabled. */
-const flyCorsOrigins = (process.env.FLY_PUBLIC_CORS_ORIGINS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
-if (flyCorsOrigins.length) {
-  app.use((req, res, next) => {
-    const origin = String(req.headers.origin || '')
-    const allowed = origin && flyCorsOrigins.includes(origin)
-    if (allowed) {
-      res.setHeader('Access-Control-Allow-Origin', origin)
-      res.setHeader('Vary', 'Origin')
-      res.setHeader('Access-Control-Allow-Credentials', 'true')
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,POST,OPTIONS')
-    const reqHdrs = req.headers['access-control-request-headers']
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      typeof reqHdrs === 'string' && reqHdrs.trim()
-        ? reqHdrs
-        : 'Content-Type, Authorization, X-X402-Facilitator, X-Payment, X-Payment-Response',
-    )
-    if (req.method === 'OPTIONS') return res.sendStatus(204)
-    next()
-  })
-}
-
 const port = Number(process.env.PORT || 8787)
 
 const openAiGatewayUpload = multer({
