@@ -9,7 +9,7 @@
 
 **Critical backend nuance:** The NHS UK marketplace **still calls** `POST /api/neighbourhood/uk/search` and `POST /api/neighbourhood/uk/synthesis`. Those routes live on the **same** `createNeighbourhoodRouter` as HES scale and insights. **Recommended approach for Lovable:** fork the reference repo (or copy files) and **trim only the React entry + hub links**; keep mounting `/api/neighbourhood` so you do not have to split the router on day one.
 
-**Optional (not in the four showcase tiles):** On-chain runner (`/nhs/onchain-runner`), OpenEHR BFF (`/api/openehr/*`), full neighbourhood insights — omit unless you need them later.
+**Optional (not in the four showcase tiles):** **On-chain Runner (`/nhs/onchain-runner`, “x1 / x50”)** — dedicated Arc evidence page: **x1 smoke** (single gated trial) then a **sequential bulk run** whose size defaults to **50 attempts** (`batchSize` 10 × `batchCount` 5; both editable in UI, so “x50” is shorthand). Two modes: **`direct_onchain_transfer`** (MetaMask only, one `eth_sendTransaction` self-transfer per attempt → strict tx hash per row) and **`x402_circle_nanopayments`** (paid `POST` via `apiPost` to a selectable endpoint — reference defaults include **`/api/neighbourhood/scale/search`** and **`/api/neighbourhood/uk/search`**). Attempts in **`localStorage`** (`nhs_onchain_runner_attempts_v1`) with JSON export/import. Optional CLI: `npm run burst:hackathon` → `scripts/hackathon-burst.mjs` (QA, not the UI). Also optional: OpenEHR BFF (`/api/openehr/*`), full neighbourhood insights — omit unless you need them later.
 
 ---
 
@@ -31,6 +31,15 @@ GOAL
 - Hub /nhs (and /) lists ONLY those four + wallet instructions. REMOVE links to /nhs/neighbourhood-insights and /nhs/hes-scale.
 - Shared shell: wallet connect, balances, Circle gateway deposit/balance, faucet link pattern, facilitator select where pages need it.
 - Transaction log: use localStorage patterns from reference; filter per page (UK page currently uses listNhsTxHistoryHesScale which INCLUDES uk/search + uk/synthesis endpoints — keep or rename filter for clarity).
+
+OPTIONAL FIFTH SURFACE — On-chain Runner (x1 / bulk “x50”)
+- Path: /nhs/onchain-runner — component NhsTxRunnerApp.tsx; wire in main.tsx (pathname switch) like other NHS pages.
+- UX label: “On-chain Runner (x1/x50)” — x1 = one smoke attempt; “x50” = default bulk of 50 sequential attempts after smoke passes (configurable batchSize × batchCount, default 10×5).
+- Flow: user must Run x1 smoke successfully before bulk run is enabled. Bulk runs attempts 1..totalAttempts sequentially; stop button aborts mid-run.
+- Modes: (1) direct_onchain_transfer — MetaMask wallet mode only; each attempt is a zero-value self-transfer on Arc testnet with a per-row tx hash when successful. (2) x402_circle_nanopayments — sets facilitator preference to circle; each attempt is apiPost(role, wallet, payload) to the selected paid API route; rows may show “Paid (x402)” without a per-row on-chain hash because Circle can batch settle (summary JSON explains chainTxCount vs auditOnlyCount).
+- Paid targets (reference RUNNER_TARGETS): HES scale search POST /api/neighbourhood/scale/search; NHS UK lane search POST /api/neighbourhood/uk/search (payloads are small demo queries).
+- Evidence: export attempts JSON; compare tx hashes with Arcscan for direct mode; for x402 mode document batching caveat in judge pack.
+- Related npm script (optional headless burst): burst:hackathon → scripts/hackathon-burst.mjs
 
 DO NOT IMPLEMENT AS PRODUCT PAGES
 - /nhs/neighbourhood-insights
@@ -73,15 +82,18 @@ Reference implementation repository (clone for file-level truth): arunnadarasa/h
 | `/nhs/dmd-intelligence` | dm+d | wardle/dmd proxy + paid lookup/summary |
 | `/nhs/uk-dataset-lane` | NHS UK marketplace | Paid CSV search + paid Featherless synthesis |
 | `/nhs/cdr` | CDR | Vaults, Pinata, token policy / licenses |
+| `/nhs/onchain-runner` | `NhsTxRunnerApp` (optional) | x1 smoke + sequential bulk (default 50); direct on-chain vs Circle x402 modes |
 
 **Example trimmed `hubRoutes` / hub quick links (conceptual):**
 
 ```ts
-// Only these hrefs in the Hackathon group:
+// Core four:
 /nhs/snomed-intelligence
 /nhs/dmd-intelligence
 /nhs/uk-dataset-lane
 /nhs/cdr
+// Optional fifth (hackathon / Arc tx evidence):
+/nhs/onchain-runner   // label e.g. "On-chain runner (x1/x50)"
 ```
 
 Reword hub hero: remove “Go to neighbourhood health plan” primary CTA; point users to SNOMED or dm+d first.
@@ -94,7 +106,7 @@ Reword hub hero: remove “Go to neighbourhood health plan” primary CTA; point
 
 | Path | Role |
 |------|------|
-| `main.tsx` | Switch on `window.location.pathname` for hub + four pages |
+| `main.tsx` | Switch on `window.location.pathname` for hub + four pages (+ optional `/nhs/onchain-runner` → `NhsTxRunnerApp`) |
 | `index.html`, `index.css`, `polyfills.ts` | Vite entry + globals (Buffer etc.) |
 | `NhsHubApp.tsx` | Trimmed links/copy |
 | `hubRoutes.ts` | Optional; trim groups to four routes |
@@ -103,13 +115,14 @@ Reword hub hero: remove “Go to neighbourhood health plan” primary CTA; point
 | `NhsDmdIntelligenceApp.tsx` | dm+d UI |
 | `NhsUkDataMarketplaceApp.tsx` | UK lane UI |
 | `NhsCdrApp.tsx` | CDR UI |
+| `NhsTxRunnerApp.tsx` | Optional — On-chain Runner (x1 smoke, bulk x402 or direct txs) |
 | `nhsSession.ts` | Role, wallet, network, auth headers |
 | `nhsApi.ts`, `nhsArcPaidFetch.ts`, `arcX402Fetch.ts` | Paid POST + x402 + Thirdweb normalization |
 | `nhsTxHistory.ts` | localStorage tx log + `paidDisplayForNeighbourhoodEndpoint` + list filters |
 | `x402FacilitatorPreference.ts` | circle \| thirdweb preference |
 | `arcGatewayBalance.ts`, `arcGatewayDeposit.ts`, `arcGatewayConstants.ts`, `arcWalletBalances.ts`, `arcChains.ts`, `evmWallet.ts` | As imported by `NhsShell` / apps |
 
-**Do not copy for this subset (unless you want extra demos):** `NhsNeighbourhoodInsightsApp.tsx`, `NhsHesScaleApp.tsx`, `NhsTxRunnerApp.tsx`, dance extras, GP access, etc.
+**Omit for “four tiles only”:** `NhsNeighbourhoodInsightsApp.tsx`, `NhsHesScaleApp.tsx`, dance extras, GP access, etc. **Add back if you want the fifth surface:** `NhsTxRunnerApp.tsx` + `main.tsx` route for `/nhs/onchain-runner` + hub link (see `hubRoutes.ts` hint: “x1 smoke + sequential x50 strict tx-hash proof flow”).
 
 ### Backend (`server/`)
 
@@ -325,7 +338,7 @@ sequenceDiagram
 
 - Neighbourhood health plan page and OpenEHR live demos (unless you mount BFF).
 - HES SQLite ingest / FTS scale page.
-- On-chain runner (strict tx hash proof) — optional separate surface.
+- On-chain runner — **omit** from the minimal four-tile Lovable build unless you need **x1 / ×50 Arc evidence**; if you need it, copy **`NhsTxRunnerApp.tsx`** + **`/nhs/onchain-runner`** route (see Section 1 optional block and `hubRoutes.ts`).
 - Snowstorm: optional; Docker-heavy.
 
 ---
@@ -338,4 +351,4 @@ sequenceDiagram
 
 ---
 
-*This handover was generated to match the **healtharcdemo** / Agentic Hackathon Arc tree at the time of writing. It includes **SNOMED POST `/api/snomed/rf2/summary`** (Featherless) plus operational notes for stale API processes on port 8787. When in doubt, diff against `server/index.js` mount order, `server/snomed/router.js`, `server/thirdwebX402.js`, and `server/x402FacilitatorContext.js`.*
+*This handover was generated to match the **healtharcdemo** / Agentic Hackathon Arc tree at the time of writing. It includes **SNOMED POST `/api/snomed/rf2/summary`** (Featherless), **On-chain Runner (x1 / default ×50 bulk)** under `/nhs/onchain-runner` (`src/NhsTxRunnerApp.tsx`), plus operational notes for stale API processes on port 8787. When in doubt, diff against `server/index.js` mount order, `server/snomed/router.js`, `server/thirdwebX402.js`, and `server/x402FacilitatorContext.js`.*
