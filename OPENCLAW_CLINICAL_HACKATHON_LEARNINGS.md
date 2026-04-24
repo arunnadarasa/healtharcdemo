@@ -303,6 +303,22 @@ Do not connect real clinical systems or ingest real patient records without appr
 8. **Remove temporary ingest/NDJSON instrumentation after the fix is verified.**  
    Debug `fetch` to local ingest ports and append-only log files should not ship in production paths; keep the behavioral fixes and optional health UX.
 
+## Session Update (SNOMED page: RF2-first UX + paid POST parity)
+
+1. **Keep the SNOMED intelligence story on the local RF2 index.**  
+   The page was refocused on the **local RF2 browser** (free GET search + concept load, tabbed details). Inline Snowstorm health/lookup and neighbourhood **HES-scale** paid search/summary cards were removed from this route so judges see one clear arc: SQLite FTS terminology + optional **USDC x402** on the **same** operations via POST.
+
+2. **Paid POST should mirror free GET payloads, not invent a second product.**  
+   `POST /api/snomed/rf2/search` accepts `{ q, limit, offset }` like GET query params; `POST /api/snomed/rf2/concept` accepts `{ conceptId }` like `GET /api/snomed/rf2/concept/:sctid`. Success bodies add `{ ok, receiptRef }` and spread the same search/concept payload the UI already renders.
+
+3. **Wire payment plumbing like dm+d: router `deps`, Circle gate, Thirdweb pre-settle.**  
+   `createSnomedRouter({ gateway, skipInternalGateway })` uses `withArcGatewayGate`; `createSnomedThirdwebPaymentMiddleware` matches mounted paths (`/rf2/search`, `/rf2/concept`); `resolveNhsX402Facilitator` + `isPaidRoutedPost` must include `/api/snomed` so Thirdweb mode does not skip facilitator validation.
+
+4. **Transaction log filters should match the page story.**  
+   SNOMED page history uses a dedicated list (RF2 paid POST endpoints only), not `listNhsTxHistoryHesScale`, so UK/HES pages do not show unrelated rows and SNOMED still shows `$0.01` labels via the shared paid-endpoint set.
+
+5. **HMR rename hygiene:** renaming `useState` / `useEffect` dependencies during a live Vite session can throw `ReferenceError` in the browser if one reference is missed; grep the file after refactors that rename timer state.
+
 ## Session Update (dm+d UI dataset label)
 
 1. **Do not hardcode operator-specific filesystem paths in React.**  

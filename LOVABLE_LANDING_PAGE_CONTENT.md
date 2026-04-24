@@ -66,7 +66,7 @@ Clinical Arc is a reference application for modern healthcare data monetization.
 OpenEHR + synthetic HES intelligence with paid aggregate and summary actions.
 
 ### 2) SNOMED Intelligence
-Terminology lookup and indexed concept workflows with paid enrichment paths.
+Local RF2 terminology browser: free GET search and concept detail, plus optional **paid POST** x402 on the **same** search and concept endpoints for demo parity (USDC per call).
 
 ### 3) dm+d Intelligence
 NHSBSA dm+d drug intelligence experience with free lookup and paid summary endpoints.
@@ -148,10 +148,10 @@ Clinical Arc is implemented as a working React + Node/Express stack with live ro
 Built and tested in real runtime conditions.
 
 **Body copy:**  
-Clinical Arc is validated with live service checks, not only static screenshots. We actively monitor Snowstorm, dm+d, and x402 paths in the demo environment and treat infrastructure and content-state issues as first-class operational concerns.
+Clinical Arc is validated with live service checks, not only static screenshots. We actively monitor optional Snowstorm, local RF2 index health, dm+d, and x402 paths in the demo environment and treat infrastructure and content-state issues as first-class operational concerns.
 
 **Proof bullets:**
-- SNOMED health checks verify service reachability before terminology calls
+- SNOMED **RF2 health** (`/api/snomed/rf2/health`) exposes index readiness and build status before search/concept calls
 - dm+d intelligence surfaces the live upstream from `/api/dmd/health` instead of hardcoded local paths
 - dm+d integration includes fallback query variants to reduce strict-match failures
 - API responses expose attempted and matched queries for transparent troubleshooting
@@ -170,7 +170,7 @@ In practice, terminology and payment systems fail in nuanced ways. We documented
 
 **Learning bullets:**
 - `http://snomed.info/sct` is the correct SNOMED FHIR system URI; most 404s were content-load mismatches, not URI mistakes
-- Snowstorm UK imports can take significant time and require enough Elasticsearch/Snowstorm memory to complete reliably
+- Local RF2 gives a Snowstorm-free browse path; optional Snowstorm UK imports still take significant time and need enough Elasticsearch/Snowstorm memory when you use FHIR `$lookup`
 - dm+d upstream search can be strict on casing and exact terms; backend fallback logic improves user-facing reliability
 - Distinguishing wallet balance from Gateway balance avoids false payment debugging trails
 - Keeping synthesis and retrieval on the same NHS UK dataset lane avoids data-source mismatch confusion

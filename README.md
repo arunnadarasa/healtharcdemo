@@ -2,7 +2,7 @@
 
 > **Workspace:** This repo is the **`agentic-hackathon-arc`** package — develop, commit, and run **`npm run dev`** / **`npm run server`** here. Treat **`Clinical Arc`** (sibling folder under Documents) as **read-only reference** unless you intentionally sync changes back.
 
-**Frontend in this build:** **`/nhs/neighbourhood-insights`** is the **Neighbourhood health plan** (OpenEHR + HES + SNOMED + x402). **`/nhs/hes-scale`** is **HES at scale** — full artificial **AE / OP / APC** in SQLite, **FTS5** search, **x402**-paid queries, **Featherless** cross-dataset summary on aggregates. **`/nhs/uk-dataset-lane`** is the **NHS UK + OpenGPT data lane** — CSV-grounded paid retrieval and paid synthesis with precision controls (`content focus`, `audience`, `context rows`). **`/nhs/snomed-intelligence`** showcases Snowstorm-backed terminology lookups plus paid x402 terminology flows. **`/nhs/dmd-intelligence`** showcases NHSBSA dm+d lookup + paid enrichment/summary patterns. **`/nhs/cdr`** is the **CDR (Confidential Data Rails) lane** — policy-aware vault allocation, encrypt/store, access request, and cooperative recovery using Arc + USDC x402. **`/nhs/onchain-runner`** is a dedicated dual-mode proof runner with strict direct on-chain evidence and Circle x402 nanopayment batching evidence. **`/`**, **`/nhs`**, and unmatched paths render the **hackathon hub**.
+**Frontend in this build:** **`/nhs/neighbourhood-insights`** is the **Neighbourhood health plan** (OpenEHR + HES + SNOMED + x402). **`/nhs/hes-scale`** is **HES at scale** — full artificial **AE / OP / APC** in SQLite, **FTS5** search, **x402**-paid queries, **Featherless** cross-dataset summary on aggregates. **`/nhs/uk-dataset-lane`** is the **NHS UK + OpenGPT data lane** — CSV-grounded paid retrieval and paid synthesis with precision controls (`content focus`, `audience`, `context rows`). **`/nhs/snomed-intelligence`** showcases local RF2 browse/search with optional **paid POST** x402 on the same RF2 **search** and **concept** loads (free GET unchanged). **`/nhs/dmd-intelligence`** showcases NHSBSA dm+d lookup + paid enrichment/summary patterns. **`/nhs/cdr`** is the **CDR (Confidential Data Rails) lane** — policy-aware vault allocation, encrypt/store, access request, and cooperative recovery using Arc + USDC x402. **`/nhs/onchain-runner`** is a dedicated dual-mode proof runner with strict direct on-chain evidence and Circle x402 nanopayment batching evidence. **`/`**, **`/nhs`**, and unmatched paths render the **hackathon hub**.
 
 **HealthTech Protocol** is the open **pattern stack** for verifiable payments and care-adjacent flows—**settled on [Arc](https://docs.arc.network/arc/references/connect-to-arc)** with **USDC nanopayments** via [Circle Gateway](https://developers.circle.com/gateway/nanopayments) and **x402** ([overview](https://developers.circle.com/gateway/nanopayments/concepts/x402)). The Express server still carries a broad route surface (NHS, neighbourhood, gateways, etc.); **Treat [`HEALTHTECH_USE_CASES.md`](./HEALTHTECH_USE_CASES.md) as the API / behavior contract** where you wire clients or tests.
 
@@ -16,7 +16,7 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 
 | Criterion | How this repo addresses it |
 |-----------|------------------------------|
-| **≤ $0.01 per paid API action** | x402 gates on neighbourhood + OpenEHR BFF routes use **$0.01** (see `server/neighbourhood/router.js`, `server/openehr/bffRouter.js`). The in-app transaction log shows **Cost (list)** **`$0.01`** for covered endpoints (`NEIGHBOURHOOD_X402_PRICE_DISPLAY` in `src/nhsTxHistory.ts`). |
+| **≤ $0.01 per paid API action** | x402 gates on neighbourhood + OpenEHR BFF + SNOMED RF2 paid POSTs use **$0.01** (see `server/neighbourhood/router.js`, `server/openehr/bffRouter.js`, `server/snomed/router.js`). The in-app transaction log shows **Cost (list)** **`$0.01`** for covered endpoints (`NEIGHBOURHOOD_X402_PRICE_DISPLAY` in `src/nhsTxHistory.ts`). |
 | **Volume / on-chain evidence (e.g. 50+ txs)** | Use **`/nhs/onchain-runner`** in dual-mode: **Direct on-chain** (MetaMask only) for strict tx-per-attempt proof, and **Circle x402 nanopayments** for paid-call logging plus batched-settlement evidence. The attempts table labels successes as **Tx on-chain** when a hash exists, or **Paid (x402)** when the paid call succeeded without a per-request hash. Recommended run is **5 batches × 10 calls** and exported attempts/summary JSON plus Arcscan checks. |
 | **Margin & gas narrative** | The neighbourhood UI includes a **margin & gas** section explaining why sub-dollar API pricing is viable on **Arc + x402** versus naive per-transaction gas. |
 | **Track fit (per-API monetization, usage-based compute)** | **Per-request x402** on priced routes (LSOA / insights, OpenEHR BFF, summary, etc.) — HTTP **402** + payment behind the BFF, not a flat subscription. |
@@ -40,7 +40,7 @@ Judging-style expectations for **Arc Testnet + USDC nanopayments + x402** are sp
 | **Neighbourhood health plan (`/nhs/neighbourhood-insights`)** | **Hackathon app:** **openEHR** (EHRbase AQL via BFF), synthetic **artificial HES** LSOA aggregates, **SNOMED CT** ([IHTSDO](https://github.com/IHTSDO)), **Arc** + **USDC** (**x402**), optional **Featherless** narrative, **Circle Modular**, **Thirdweb** facilitator option where configured. |
 | **HES at scale (`/nhs/hes-scale`)** | **Full** artificial HES **AE + OP + APC** (streaming CSV ingest into SQLite), **FTS5** + prefix search (**`/api/neighbourhood/scale/search`**), **Featherless** AE+OP+APC narrative (**`/api/neighbourhood/scale/cross-summary`**), x402 **$0.01** per paid call — scalability story for judges. |
 | **NHS UK dataset lane (`/nhs/uk-dataset-lane`)** | OpenGPT-style NHS UK CSV lane with **paid retrieval** (**`/api/neighbourhood/uk/search`**) and **paid synthesis** (**`/api/neighbourhood/uk/synthesis`**) grounded on selected dataset rows; includes precision controls for focused output. |
-| **SNOMED intelligence (`/nhs/snomed-intelligence`)** | Hybrid SNOMED demo: local RF2 browser/search (`/api/snomed/rf2/*`) for full-package terminology retrieval plus optional Snowstorm health/lookup and paid terminology search/summary x402 routes. |
+| **SNOMED intelligence (`/nhs/snomed-intelligence`)** | Local RF2 browser (`/api/snomed/rf2/*`): free GET search + concept detail; optional **paid POST** RF2 search and **paid POST** concept load (USDC x402 demo, same payloads as GET). |
 | **dm+d intelligence (`/nhs/dmd-intelligence`)** | NHSBSA dm+d demo with free search/health checks and paid `lookup` + `summary` endpoints via x402. |
 | **CDR lane (`/nhs/cdr`)** | Story-inspired confidential data rails demo: **paid** vault allocation, **paid** encrypt/store, **paid** access + recovery lifecycle, plus audit log views. |
 | **Backend (`server/`)** | Express: **`/api/nhs/*`**, **`/api/neighbourhood/*`** (includes **`/scale/*`** + **`/uk/*`**), **`/api/openehr/*`**, **`/api/snomed/*`**, **`/api/cdr/*`**, **`POST /api/circle-modular`**, plus many optional gateway routes — see **`GET /openapi.json`**. |
@@ -82,7 +82,7 @@ For the Snowstorm-free path in this repo, configure:
 - **`SNOMED_RF2_BASE_DIR`** (root folder containing your extracted RF2 packages; default is the local hackathon path under `~/Downloads`)
 - **`SNOMED_RF2_SQLITE_PATH`** (optional override for the local RF2 index DB; default `data/snomed-rf2.db`)
 
-Then use `/api/snomed/rf2/health`, `/api/snomed/rf2/search`, and `/api/snomed/rf2/concept/:sctid` from the SNOMED page. Public **SNOMED International Browser** still works without Snowstorm.
+Then use `/api/snomed/rf2/health`, free GET `/api/snomed/rf2/search`, optional paid POST `/api/snomed/rf2/search` (same query body as GET query params, x402 demo parity), free GET `/api/snomed/rf2/concept/:sctid`, and optional paid POST `/api/snomed/rf2/concept` with JSON `{ "conceptId": "<sctid>" }` from the SNOMED page. Public **SNOMED International Browser** still works without Snowstorm.
 
 If the UI shows **`Cannot POST /api/...`**, restart the backend on **8787**. Quick check: **`GET http://localhost:8787/openapi.json`**.
 
@@ -114,13 +114,13 @@ For hackathon capture steps, see **[Hackathon criteria alignment](#hackathon-cri
 | `/nhs/neighbourhood-insights` | **Neighbourhood health plan** — HES aggregates, OpenEHR BFF, SNOMED tools, x402-paid actions, **transaction log** (paginated), facilitator preference. |
 | `/nhs/hes-scale` | **HES at scale** — SQLite row counts + on-disk DB size, **paid** FTS/prefix search, **paid** Featherless AE+OP+APC summary, tx log. |
 | `/nhs/uk-dataset-lane` | **NHS UK + OpenGPT data lane** — **paid** CSV retrieval + **paid** CSV-grounded synthesis with `content focus`, `audience`, and `context rows`. |
-| `/nhs/snomed-intelligence` | **SNOMED intelligence** — local RF2 browser (word + SCTID search, concept detail tabs) + optional Snowstorm health/lookup + paid terminology search/summary with x402. |
+| `/nhs/snomed-intelligence` | **SNOMED intelligence** — local RF2 browser (word + SCTID search, concept detail tabs) + free GET and optional paid POST RF2 **search** and **concept** with x402. |
 | `/nhs/dmd-intelligence` | **dm+d intelligence** — NHSBSA dm+d free search/health and paid lookup/summary x402 flows. |
 | `/nhs/cdr` | **CDR (Confidential Data Rails)** — policy templates, paid vault lifecycle (`allocate`, `encrypt-store`, `request-access`, `recover`, `revoke`), and audit/tx timeline. |
 | `/nhs/onchain-runner` | **On-chain runner** — dual-mode runner: **direct** lane (MetaMask, strict tx hash per attempt) and **Circle x402** lane (MetaMask or Circle; batched settlement caveat) + export/import JSON evidence + clear attempt status labels. |
 | **`/`** · **`/nhs`** · **other unmatched paths** | **Hackathon hub** — wallet, links to neighbourhood + HES scale + NHS UK lane + SNOMED + dm+d + CDR + on-chain runner (`src/main.tsx` + `src/hubRoutes.ts`). |
 
-**Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`** (incl. **`/scale/search`**, **`/scale/cross-summary`**, **`/uk/search`**, **`/uk/synthesis`**), **`/api/openehr/*`**, **`/api/snomed/*`** (including **`/rf2/health`**, **`/rf2/search`**, **`/rf2/concept/:sctid`**), **`/api/cdr/*`** (`/vaults/allocate`, `/vaults/:vaultId/encrypt-store`, `/vaults/:vaultId/request-access`, `/vaults/:vaultId/recover`, `/vaults/:vaultId/revoke`, `/vaults/:vaultId`, `/audit`, `/licenses/check`, `/licenses/issue`), **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
+**Server APIs used by the demo (non-exhaustive):** **`/api/nhs/*`**, **`/api/neighbourhood/*`** (incl. **`/scale/search`**, **`/scale/cross-summary`**, **`/uk/search`**, **`/uk/synthesis`**), **`/api/openehr/*`**, **`/api/snomed/*`** (including **`/rf2/health`**, **`GET/POST /rf2/search`**, **`GET /rf2/concept/:sctid`**, **`POST /rf2/concept`**), **`/api/cdr/*`** (`/vaults/allocate`, `/vaults/:vaultId/encrypt-store`, `/vaults/:vaultId/request-access`, `/vaults/:vaultId/recover`, `/vaults/:vaultId/revoke`, `/vaults/:vaultId`, `/audit`, `/licenses/check`, `/licenses/issue`), **`POST /api/circle-modular`**, **`POST /api/arc/faucet`** — full list: **`GET /openapi.json`** (proxied in dev; also **`http://localhost:8787/openapi.json`**).
 
 ### CDR token/license contract (Arc testnet)
 
@@ -172,11 +172,13 @@ Use `/nhs/onchain-runner` for hackathon evidence in two lanes:
 
 ### SNOMED local RF2 browser (full package)
 
-- SNOMED page includes a **local RF2 browser pane** with search-by-term, direct SCTID lookup, tabbed concept details (summary, descriptions, hierarchy), and **loading/disabled** controls while RF2 API calls run.
+- SNOMED page includes a **local RF2 browser pane** with search-by-term, direct SCTID lookup, tabbed concept details (summary, descriptions, hierarchy), **free GET** actions, optional **paid POST** x402 for the same search/concept data, and **loading/disabled** controls while RF2 API calls run.
 - Backend local RF2 endpoints:
   - `GET /api/snomed/rf2/health` — includes `indexReady`, `indexBuildInFlight`, `buildStatus`, and stats when indexed.
   - `GET /api/snomed/rf2/search?q=...&limit=...` — **503** while index is building; otherwise FTS `MATCH` + grouped concept hits with bulk term resolution (not per-row N+1).
+  - `POST /api/snomed/rf2/search` — **$0.01** x402 when `NHS_ENABLE_PAYMENT_GATE` is on; same semantics as GET; response adds `ok` + `receiptRef` around the search payload.
   - `GET /api/snomed/rf2/concept/:sctid` — **503** while not ready; otherwise descriptions + IS-A parents/children with **bulk** FSN/preferred-term resolution for related concepts.
+  - `POST /api/snomed/rf2/concept` — **$0.01** x402 when gate on; JSON body `{ "conceptId": "<sctid>" }`; same concept shape as GET plus `ok` + `receiptRef`.
 - Data source: extracted RF2 package root at `SNOMED_RF2_BASE_DIR` (override in `.env`; default may point at a local Downloads path — set explicitly in CI or other machines).
 - Search relevance for demos: results ordered by **match count** per concept (not BM25), which is predictable and fast on large UK corpora.
 

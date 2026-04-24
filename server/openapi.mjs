@@ -217,6 +217,91 @@ export function buildOpenApiDocument(req) {
           responses: { 200: { description: 'FHIR Parameters' }, 400: { description: 'Bad id' }, 502: { description: 'Upstream error' } },
         },
       },
+      '/api/snomed/rf2/health': {
+        get: {
+          operationId: 'snomedRf2Health',
+          summary: 'Local RF2 SQLite index status (unpaid)',
+          tags: ['SNOMED'],
+          responses: { 200: { description: 'Index health' }, 500: { description: 'Error' } },
+        },
+      },
+      '/api/snomed/rf2/search': {
+        get: {
+          operationId: 'snomedRf2SearchGet',
+          summary: 'Local RF2 FTS search (unpaid GET)',
+          tags: ['SNOMED'],
+          parameters: [
+            { name: 'q', in: 'query', required: true, schema: { type: 'string' } },
+            { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 25 } },
+            { name: 'offset', in: 'query', required: false, schema: { type: 'integer', default: 0 } },
+          ],
+          responses: { 200: { description: 'Search hits' }, 400: { description: 'Missing q' }, 503: { description: 'Index building' } },
+        },
+        post: {
+          operationId: 'snomedRf2SearchPost',
+          summary: 'Paid local RF2 FTS search (x402 demo; same semantics as GET)',
+          tags: ['SNOMED'],
+          'x-payment-info': { pricingMode: 'fixed', minPrice: '0.010000', maxPrice: '0.010000', protocols: ['x402'] },
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['q'],
+                  properties: {
+                    q: { type: 'string' },
+                    limit: { type: 'integer', default: 25 },
+                    offset: { type: 'integer', default: 0 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Search hits + receiptRef when gate enabled' },
+            400: { description: 'Missing q' },
+            402: { description: 'Payment Required' },
+            503: { description: 'Index building' },
+          },
+        },
+      },
+      '/api/snomed/rf2/concept/{conceptId}': {
+        get: {
+          operationId: 'snomedRf2Concept',
+          summary: 'Local RF2 concept detail (unpaid)',
+          tags: ['SNOMED'],
+          parameters: [{ name: 'conceptId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Concept' }, 404: { description: 'Not found' }, 503: { description: 'Index building' } },
+        },
+      },
+      '/api/snomed/rf2/concept': {
+        post: {
+          operationId: 'snomedRf2ConceptPost',
+          summary: 'Paid local RF2 concept detail (x402 demo; same payload as GET by SCTID)',
+          tags: ['SNOMED'],
+          'x-payment-info': { pricingMode: 'fixed', minPrice: '0.010000', maxPrice: '0.010000', protocols: ['x402'] },
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['conceptId'],
+                  properties: { conceptId: { type: 'string' } },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Concept + receiptRef when gate enabled' },
+            400: { description: 'Bad conceptId' },
+            402: { description: 'Payment Required' },
+            404: { description: 'Not found' },
+            503: { description: 'Index building' },
+          },
+        },
+      },
       '/api/cdr/vaults/allocate': {
         post: {
           operationId: 'cdrVaultAllocate',

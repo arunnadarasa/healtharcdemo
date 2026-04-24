@@ -35,6 +35,7 @@ import {
   createCdrThirdwebPaymentMiddleware,
   createDmdThirdwebPaymentMiddleware,
   createOpenehrThirdwebPaymentMiddleware,
+  createSnomedThirdwebPaymentMiddleware,
   isThirdwebSettlementConfigured,
 } from './thirdwebX402.js'
 import { resolveNhsX402Facilitator } from './x402FacilitatorContext.js'
@@ -433,6 +434,7 @@ if (nhsPaymentGateEnabled && thirdwebSettlementReady) {
   app.use('/api/neighbourhood', createNeighbourhoodThirdwebPaymentMiddleware())
   app.use('/api/openehr', createOpenehrThirdwebPaymentMiddleware())
   app.use('/api/dmd', createDmdThirdwebPaymentMiddleware())
+  app.use('/api/snomed', createSnomedThirdwebPaymentMiddleware())
   app.use('/api/cdr', createCdrThirdwebPaymentMiddleware())
 }
 
@@ -459,8 +461,14 @@ app.use(
   }),
 )
 
-/** SNOMED CT via optional [Snowstorm](https://github.com/IHTSDO/snowstorm) — read-only FHIR $lookup */
-app.use('/api/snomed', createSnomedRouter())
+/** SNOMED CT via optional [Snowstorm](https://github.com/IHTSDO/snowstorm) — read-only FHIR $lookup; local RF2 GET + paid POST search */
+app.use(
+  '/api/snomed',
+  createSnomedRouter({
+    gateway: arcGateway,
+    skipInternalGateway: (req) => req.nhsX402Facilitator === 'thirdweb',
+  }),
+)
 app.use(
   '/api/dmd',
   createDmdRouter({

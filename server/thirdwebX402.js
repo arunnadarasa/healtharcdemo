@@ -222,6 +222,29 @@ export function createDmdThirdwebPaymentMiddleware() {
   }
 }
 
+export function createSnomedThirdwebPaymentMiddleware() {
+  if (!isThirdwebSettlementConfigured()) {
+    return (_req, _res, next) => next()
+  }
+  return async (req, res, next) => {
+    if (req.nhsX402Facilitator !== 'thirdweb') return next()
+    if (req.method !== 'POST') return next()
+    if (req.path === '/rf2/search') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'Local SNOMED RF2 FTS search (demo)',
+      })
+    }
+    if (req.path === '/rf2/concept') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'Local SNOMED RF2 concept detail (demo)',
+      })
+    }
+    return next()
+  }
+}
+
 export function createCdrThirdwebPaymentMiddleware() {
   if (!isThirdwebSettlementConfigured()) {
     return (_req, _res, next) => next()

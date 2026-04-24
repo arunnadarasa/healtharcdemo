@@ -1,4 +1,5 @@
 import express from 'express'
+import { withArcGatewayGate } from '../nhs/payment.js'
 import { fhirLookupSnomedConcept, getSnowstormStatus } from './snowstormClient.js'
 import {
   getRf2Concept,
@@ -8,10 +9,14 @@ import {
 } from './rf2LocalDb.js'
 
 /**
- * Read-only SNOMED / Snowstorm routes (no x402 — public terminology lookups).
+ * SNOMED / Snowstorm read routes + local RF2 (free GET search/concept, optional paid POST search/concept).
+ *
+ * @param {{ gateway: import('@circle-fin/x402-batching/server').GatewayMiddleware, skipInternalGateway?: boolean|((req:any)=>boolean) }} deps
  */
-export function createSnomedRouter() {
+export function createSnomedRouter(deps) {
   const router = express.Router()
+  const gate = (config, handler) => withArcGatewayGate(deps, config, handler)
+  const paymentGateEnabled = process.env.NHS_ENABLE_PAYMENT_GATE !== 'false'
 
   router.get('/health', async (_req, res) => {
     try {
@@ -90,6 +95,44 @@ export function createSnomedRouter() {
     }
   })
 
+  router.post(
+    '/rf2/search',
+    ...gate(
+      { enabled: paymentGateEnabled, amount: '0.01' },
+      async (req, res, paymentCtx) => {
+        const q = String(req.body?.q ?? '').trim()
+        if (!q) {
+          return res.status(400).json({
+            ok: false,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            error: 'q is required',
+          })
+        }
+        const limit = Number.parseInt(String(req.body?.limit ?? '25'), 10)
+        const offset = Number.parseInt(String(req.body?.offset ?? '0'), 10)
+        try {
+          const out = await searchRf2Concepts(q, limit, offset)
+          return res.json({ ok: true, receiptRef: paymentCtx.paymentReceiptRef ?? null, ...out })
+        } catch (e) {
+          if (e instanceof Rf2IndexNotReadyError) {
+            res.set('Retry-After', '5')
+            return res.status(503).json({
+              ok: false,
+              receiptRef: paymentCtx.paymentReceiptRef ?? null,
+              error: String(e?.message ?? e),
+              buildStatus: e.buildStatus,
+            })
+          }
+          return res.status(500).json({
+            ok: false,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            error: String(e?.message ?? e),
+          })
+        }
+      },
+    ),
+  )
+
   router.get('/rf2/concept/:conceptId', async (req, res) => {
     const id = String(req.params.conceptId || '').trim()
     if (!/^\d+$/.test(id)) {
@@ -110,6 +153,49 @@ export function createSnomedRouter() {
       return res.status(500).json({ error: String(e?.message ?? e) })
     }
   })
+
+  router.post(
+    '/rf2/concept',
+    ...gate(
+      { enabled: paymentGateEnabled, amount: '0.01' },
+      async (req, res, paymentCtx) => {
+        const id = String(req.body?.conceptId ?? '').trim()
+        if (!/^\d+$/.test(id)) {
+          return res.status(400).json({
+            ok: false,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            error: 'conceptId must be numeric (SCTID)',
+          })
+        }
+        try {
+          const concept = await getRf2Concept(id)
+          if (!concept) {
+            return res.status(404).json({
+              ok: false,
+              receiptRef: paymentCtx.paymentReceiptRef ?? null,
+              error: 'Concept not found in local RF2 index',
+            })
+          }
+          return res.json({ ok: true, receiptRef: paymentCtx.paymentReceiptRef ?? null, ...concept })
+        } catch (e) {
+          if (e instanceof Rf2IndexNotReadyError) {
+            res.set('Retry-After', '5')
+            return res.status(503).json({
+              ok: false,
+              receiptRef: paymentCtx.paymentReceiptRef ?? null,
+              error: String(e?.message ?? e),
+              buildStatus: e.buildStatus,
+            })
+          }
+          return res.status(500).json({
+            ok: false,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            error: String(e?.message ?? e),
+          })
+        }
+      },
+    ),
+  )
 
   return router
 }

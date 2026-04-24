@@ -1,5 +1,5 @@
 /**
- * Per-request x402 facilitator for neighbourhood + OpenEHR + dm+d routes.
+ * Per-request x402 facilitator for neighbourhood + OpenEHR + dm+d + SNOMED + CDR routes.
  * Client sends `X-X402-Facilitator: thirdweb` | `circle`; falls back to `X402_FACILITATOR` env (default circle).
  * NHS `/api/nhs/*` routes ignore this (Circle Gateway only).
  */
@@ -11,7 +11,8 @@ function isPaidRoutedPost(req) {
     !path.startsWith('/api/neighbourhood') &&
     !path.startsWith('/api/openehr') &&
     !path.startsWith('/api/dmd') &&
-    !path.startsWith('/api/cdr')
+    !path.startsWith('/api/cdr') &&
+    !path.startsWith('/api/snomed')
   )
     return false
   if (
@@ -26,6 +27,7 @@ function isPaidRoutedPost(req) {
     return true
   if (path.startsWith('/api/openehr') && path.endsWith('/query/aql')) return true
   if (path.startsWith('/api/dmd') && (path.endsWith('/lookup') || path.endsWith('/summary'))) return true
+  if (path === '/api/snomed/rf2/search' || path === '/api/snomed/rf2/concept') return true
   if (
     path.startsWith('/api/cdr') &&
     (path.endsWith('/vaults/allocate') ||
@@ -47,7 +49,8 @@ export function resolveNhsX402Facilitator(req, res, next) {
     !path.startsWith('/api/neighbourhood') &&
     !path.startsWith('/api/openehr') &&
     !path.startsWith('/api/dmd') &&
-    !path.startsWith('/api/cdr')
+    !path.startsWith('/api/cdr') &&
+    !path.startsWith('/api/snomed')
   ) {
     return next()
   }

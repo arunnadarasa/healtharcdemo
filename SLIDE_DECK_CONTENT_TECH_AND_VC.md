@@ -44,7 +44,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - **Experience layer:** NHS hub and intelligence pages
 - **API layer:** `/api/neighbourhood/*`, `/api/snomed/*`, `/api/dmd/*`, `/api/openehr/*`
 - **Payments layer:** x402 challenge-response with USDC settlement paths
-- **Data layer:** synthetic HES, SNOMED lookup, dm+d intelligence workflows
+- **Data layer:** synthetic HES, SNOMED local RF2 (FTS + concept graph), dm+d intelligence workflows
 
 ---
 
@@ -54,7 +54,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 - Neighbourhood health insights (aggregates + paid summaries)
 - HES at scale (FTS search + cross-dataset summary)
 - NHS UK dataset lane (CSV-grounded retrieval + synthesis with precision controls)
-- SNOMED intelligence (lookup, indexed search, summary)
+- SNOMED intelligence (local RF2 browse: free GET search + concept; optional paid POST x402 on the same index)
 - dm+d intelligence (free lookup + paid enrichment and paid summary)
 - CDR lane (Confidential Data Rails vault lifecycle demo)
 - CDR onboarding helpers (one-click license check/issue for current Circle/MetaMask wallet)
@@ -193,7 +193,7 @@ Use as speaker-ready content in Slides, Keynote, Pitch, or Lovable.
 **Title:** Clinical Arc in one sentence  
 **Bullets:**
 - A working platform for healthcare intelligence workflows with built-in micropayment gating
-- Delivers SNOMED, dm+d, neighbourhood insights, and NHS UK OpenGPT dataset lane in one system
+- Delivers SNOMED local RF2 (free browse + paid POST x402 demos), dm+d, neighbourhood insights, and NHS UK OpenGPT dataset lane in one system
 - Supports both enterprise UX and API-first monetization paths
 
 ---

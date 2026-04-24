@@ -60,7 +60,7 @@ export function clearNhsTxHistory() {
   localStorage.removeItem(KEY)
 }
 
-/** Paid neighbourhood + OpenEHR + HES scale routes (x402 $0.01). */
+/** Paid neighbourhood + OpenEHR + HES scale + SNOMED RF2 routes (x402 $0.01). */
 const NEIGHBOURHOOD_PAID_ENDPOINTS = new Set([
   '/api/openehr/query/aql',
   '/api/neighbourhood/insights/lsoa',
@@ -69,6 +69,8 @@ const NEIGHBOURHOOD_PAID_ENDPOINTS = new Set([
   '/api/neighbourhood/uk/search',
   '/api/neighbourhood/uk/synthesis',
   '/api/neighbourhood/scale/cross-summary',
+  '/api/snomed/rf2/search',
+  '/api/snomed/rf2/concept',
 ])
 
 /** Insights page only (excludes HES scale explorer paid calls). */
@@ -84,6 +86,9 @@ const HES_SCALE_ENDPOINTS = new Set([
   '/api/neighbourhood/uk/synthesis',
   '/api/neighbourhood/scale/cross-summary',
 ])
+
+/** SNOMED intelligence page: paid local RF2 search + concept (POST). */
+const SNOMED_RF2_PAID_ENDPOINTS = new Set(['/api/snomed/rf2/search', '/api/snomed/rf2/concept'])
 
 const DMD_ENDPOINTS = new Set(['/api/dmd/lookup', '/api/dmd/summary'])
 const CDR_ENDPOINTS = new Set([
@@ -121,6 +126,13 @@ export function listNhsTxHistoryNeighbourhoodInsights(network: NhsNetwork): NhsT
 export function listNhsTxHistoryHesScale(network: NhsNetwork): NhsTxItem[] {
   return listNhsTxHistory().filter(
     (row) => row.network === network && HES_SCALE_ENDPOINTS.has(row.endpoint),
+  )
+}
+
+/** Paid local RF2 search + concept POSTs — use on SNOMED intelligence transaction log. */
+export function listNhsTxHistorySnomedRf2Search(network: NhsNetwork): NhsTxItem[] {
+  return listNhsTxHistory().filter(
+    (row) => row.network === network && SNOMED_RF2_PAID_ENDPOINTS.has(row.endpoint),
   )
 }
 
