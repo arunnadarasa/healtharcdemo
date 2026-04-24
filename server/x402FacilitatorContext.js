@@ -27,7 +27,12 @@ function isPaidRoutedPost(req) {
     return true
   if (path.startsWith('/api/openehr') && path.endsWith('/query/aql')) return true
   if (path.startsWith('/api/dmd') && (path.endsWith('/lookup') || path.endsWith('/summary'))) return true
-  if (path === '/api/snomed/rf2/search' || path === '/api/snomed/rf2/concept') return true
+  if (
+    path === '/api/snomed/rf2/search' ||
+    path === '/api/snomed/rf2/concept' ||
+    path === '/api/snomed/rf2/summary'
+  )
+    return true
   if (
     path.startsWith('/api/cdr') &&
     (path.endsWith('/vaults/allocate') ||

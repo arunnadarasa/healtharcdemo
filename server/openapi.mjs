@@ -302,6 +302,34 @@ export function buildOpenApiDocument(req) {
           },
         },
       },
+      '/api/snomed/rf2/summary': {
+        post: {
+          operationId: 'snomedRf2FeatherlessSummary',
+          summary: 'Paid Featherless LLM summary of local RF2 concept (x402 demo)',
+          tags: ['SNOMED'],
+          'x-payment-info': { pricingMode: 'fixed', minPrice: '0.010000', maxPrice: '0.010000', protocols: ['x402'] },
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['conceptId'],
+                  properties: { conceptId: { type: 'string' } },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Summary text + receiptRef when gate enabled' },
+            400: { description: 'Bad conceptId' },
+            402: { description: 'Payment Required' },
+            404: { description: 'Concept not found' },
+            502: { description: 'Upstream LLM error' },
+            503: { description: 'Index building or missing FEATHERLESS_API_KEY' },
+          },
+        },
+      },
       '/api/cdr/vaults/allocate': {
         post: {
           operationId: 'cdrVaultAllocate',

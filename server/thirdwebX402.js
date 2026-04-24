@@ -241,6 +241,12 @@ export function createSnomedThirdwebPaymentMiddleware() {
         description: 'Local SNOMED RF2 concept detail (demo)',
       })
     }
+    if (req.path === '/rf2/summary') {
+      return runSettlePayment(req, res, next, {
+        price: '$0.01',
+        description: 'SNOMED RF2 Featherless summary (demo)',
+      })
+    }
     return next()
   }
 }

@@ -62,6 +62,9 @@ function errorFromResponse(
     if (typeof o.message === 'string' && o.message) return appendDetail(o.message, o.reason)
   }
   if (typeof payload === 'string' && payload.trim()) {
+    if (/cannot\s+post/i.test(payload)) {
+      return 'This POST path is not registered on the API process listening on port 8787 (often a stale Node server from before the route was added). Restart `npm run server` or `npm run dev:full`, then retry.'
+    }
     const lower = payload.slice(0, 80).toLowerCase()
     if (lower.includes('<!doctype') || lower.includes('<html')) {
       if (status === 502 || status === 503 || status === 504) {

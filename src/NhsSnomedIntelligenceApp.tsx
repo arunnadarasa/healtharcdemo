@@ -67,6 +67,16 @@ type PaidRf2ConceptPayload = Rf2ConceptDetails & {
   buildStatus?: unknown
 }
 
+type PaidRf2FeatherlessPayload = {
+  ok?: boolean
+  summary?: string
+  model?: string
+  conceptId?: string
+  disclaimer?: string
+  receiptRef?: string | null
+  error?: string
+}
+
 const TX_LOG_PAGE_SIZE = 10
 
 function SnomedIntelligenceGrid({
@@ -90,9 +100,10 @@ function SnomedIntelligenceGrid({
   const [rf2Selected, setRf2Selected] = useState('289908002')
   const [rf2ConceptOut, setRf2ConceptOut] = useState<Rf2ConceptDetails | null>(null)
   const [rf2DetailTab, setRf2DetailTab] = useState<'summary' | 'descriptions' | 'hierarchy'>('summary')
+  const [rf2FeatherlessOut, setRf2FeatherlessOut] = useState('')
   const [rf2Error, setRf2Error] = useState('')
   const [rf2Busy, setRf2Busy] = useState<
-    'idle' | 'health' | 'search' | 'paidSearch' | 'paidConcept' | 'concept'
+    'idle' | 'health' | 'search' | 'paidSearch' | 'paidConcept' | 'paidFeatherless' | 'concept'
   >('idle')
   const [rf2PaidStartedAt, setRf2PaidStartedAt] = useState<number | null>(null)
   const [rf2PaidElapsedSec, setRf2PaidElapsedSec] = useState(0)
@@ -201,6 +212,7 @@ function SnomedIntelligenceGrid({
         return
       }
       setRf2Error('')
+      setRf2FeatherlessOut('')
       setRf2Busy('paidConcept')
       setRf2PaidStartedAt(Date.now())
       setRf2PaidElapsedSec(0)
@@ -235,10 +247,49 @@ function SnomedIntelligenceGrid({
     [refreshTxLog, rf2Selected, session.network, session.role, session.wallet],
   )
 
+  const runPaidFeatherlessSummary = useCallback(async () => {
+    const id = rf2Selected.trim()
+    if (!/^\d+$/.test(id)) {
+      setRf2Error('Enter a numeric SCTID for Featherless summary.')
+      return
+    }
+    if (!session.wallet) {
+      setRf2Error('Connect a wallet for Featherless summary.')
+      return
+    }
+    setRf2Error('')
+    setRf2Busy('paidFeatherless')
+    setRf2PaidStartedAt(Date.now())
+    setRf2PaidElapsedSec(0)
+    try {
+      const res = await apiPost<PaidRf2FeatherlessPayload>(
+        '/api/snomed/rf2/summary',
+        session.role,
+        session.wallet,
+        { conceptId: id },
+        { network: session.network },
+      )
+      if (!res.ok) {
+        setRf2Error(res.error)
+        return
+      }
+      refreshTxLog()
+      const summary = typeof res.data?.summary === 'string' ? res.data.summary : ''
+      setRf2FeatherlessOut(summary || JSON.stringify(res.data, null, 2))
+    } catch (e) {
+      setRf2Error(String((e as Error)?.message || e))
+    } finally {
+      setRf2Busy('idle')
+      setRf2PaidStartedAt(null)
+      setRf2PaidElapsedSec(0)
+    }
+  }, [refreshTxLog, rf2Selected, session.network, session.role, session.wallet])
+
   const runRf2Lookup = useCallback(async (idFromRow?: string) => {
     const id = (idFromRow || rf2Selected || '').trim()
     if (!id) return
     setRf2Error('')
+    setRf2FeatherlessOut('')
     setRf2Busy('concept')
     try {
       const res = await fetch(`/api/snomed/rf2/concept/${encodeURIComponent(id)}`)
@@ -264,7 +315,11 @@ function SnomedIntelligenceGrid({
   }, [rf2Selected])
 
   useEffect(() => {
-    if ((rf2Busy !== 'paidSearch' && rf2Busy !== 'paidConcept') || rf2PaidStartedAt == null) return
+    if (
+      (rf2Busy !== 'paidSearch' && rf2Busy !== 'paidConcept' && rf2Busy !== 'paidFeatherless') ||
+      rf2PaidStartedAt == null
+    )
+      return
     const id = setInterval(() => {
       setRf2PaidElapsedSec(Math.max(0, Math.floor((Date.now() - rf2PaidStartedAt) / 1000)))
     }, 250)
@@ -292,9 +347,10 @@ function SnomedIntelligenceGrid({
       <article className="card">
         <h2>x402 settlement</h2>
         <p className="note">
-          SNOMED intelligence demo: optional <strong>paid local RF2 search</strong> and{' '}
-          <strong>paid concept detail</strong> with <strong>USDC {NEIGHBOURHOOD_X402_PRICE_DISPLAY}</strong> each (POST
-          for x402 demo parity; free GET browse unchanged).
+          SNOMED intelligence demo: optional <strong>paid local RF2 search</strong>, <strong>paid concept detail</strong>
+          , and <strong>paid Featherless summary</strong> of an RF2 concept with{' '}
+          <strong>USDC {NEIGHBOURHOOD_X402_PRICE_DISPLAY}</strong> each (POST for x402 demo parity; free GET browse
+          unchanged).
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
           <label htmlFor="x402-fac-snomed" className="note">
@@ -319,7 +375,8 @@ function SnomedIntelligenceGrid({
         <p className="note">
           Bespoke RF2 path for this demo: search by word or SCTID over local UK RF2 packages, then inspect concept-level
           details (FSN, synonyms, hierarchy snippets). Use <strong>Search RF2</strong> / <strong>Load concept</strong> for
-          free GET, or the paid buttons for the same data via x402 POST.
+          free GET, or the paid buttons for RF2 data via x402 POST. <strong>Featherless summary</strong> uses the SCTID
+          field (paid POST; requires <code>FEATHERLESS_API_KEY</code> on the server).
         </p>
         <div className="actions" style={{ alignItems: 'center' }}>
           <button type="button" className="secondary" onClick={() => void runRf2Health()} disabled={rf2ActionsDisabled}>
@@ -351,6 +408,13 @@ function SnomedIntelligenceGrid({
           >
             Run paid load concept ({NEIGHBOURHOOD_X402_PRICE_DISPLAY})
           </button>
+          <button
+            type="button"
+            disabled={!session.wallet || rf2ActionsDisabled}
+            onClick={() => void runPaidFeatherlessSummary()}
+          >
+            Featherless summary ({NEIGHBOURHOOD_X402_PRICE_DISPLAY})
+          </button>
         </div>
         {rf2Busy !== 'idle' ? (
           <p className="note" style={{ color: '#1d4ed8' }}>
@@ -362,7 +426,9 @@ function SnomedIntelligenceGrid({
                   ? `Paid RF2 search (x402)… ${rf2PaidElapsedSec}s`
                   : rf2Busy === 'paidConcept'
                     ? `Paid RF2 concept load (x402)… ${rf2PaidElapsedSec}s`
-                    : 'Loading RF2 concept details...'}
+                    : rf2Busy === 'paidFeatherless'
+                      ? `Featherless summary (x402)… ${rf2PaidElapsedSec}s`
+                      : 'Loading RF2 concept details...'}
           </p>
         ) : null}
         {rf2Error ? <p className="note" style={{ color: '#b45309' }}>{rf2Error}</p> : null}
@@ -466,6 +532,14 @@ function SnomedIntelligenceGrid({
             ) : (
               <p className="note">No concept loaded yet.</p>
             )}
+            {rf2FeatherlessOut ? (
+              <>
+                <h4 style={{ marginTop: '1rem', marginBottom: '0.35rem' }}>Featherless summary</h4>
+                <pre className="log" style={{ maxHeight: 280, overflow: 'auto' }}>
+                  {rf2FeatherlessOut}
+                </pre>
+              </>
+            ) : null}
           </article>
         </div>
         <details style={{ marginTop: '0.65rem' }}>

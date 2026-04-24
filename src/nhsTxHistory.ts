@@ -71,6 +71,7 @@ const NEIGHBOURHOOD_PAID_ENDPOINTS = new Set([
   '/api/neighbourhood/scale/cross-summary',
   '/api/snomed/rf2/search',
   '/api/snomed/rf2/concept',
+  '/api/snomed/rf2/summary',
 ])
 
 /** Insights page only (excludes HES scale explorer paid calls). */
@@ -88,7 +89,11 @@ const HES_SCALE_ENDPOINTS = new Set([
 ])
 
 /** SNOMED intelligence page: paid local RF2 search + concept (POST). */
-const SNOMED_RF2_PAID_ENDPOINTS = new Set(['/api/snomed/rf2/search', '/api/snomed/rf2/concept'])
+const SNOMED_RF2_PAID_ENDPOINTS = new Set([
+  '/api/snomed/rf2/search',
+  '/api/snomed/rf2/concept',
+  '/api/snomed/rf2/summary',
+])
 
 const DMD_ENDPOINTS = new Set(['/api/dmd/lookup', '/api/dmd/summary'])
 const CDR_ENDPOINTS = new Set([

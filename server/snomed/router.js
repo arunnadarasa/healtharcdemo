@@ -8,8 +8,26 @@ import {
   searchRf2Concepts,
 } from './rf2LocalDb.js'
 
+async function fetchJson(url, init = {}, timeoutMs = 12000) {
+  const ctrl = new AbortController()
+  const id = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal })
+    const text = await res.text()
+    let data = null
+    try {
+      data = text ? JSON.parse(text) : null
+    } catch {
+      data = { raw: text }
+    }
+    return { ok: res.ok, status: res.status, data }
+  } finally {
+    clearTimeout(id)
+  }
+}
+
 /**
- * SNOMED / Snowstorm read routes + local RF2 (free GET search/concept, optional paid POST search/concept).
+ * SNOMED / Snowstorm read routes + local RF2 (free GET search/concept, optional paid POST search/concept/summary).
  *
  * @param {{ gateway: import('@circle-fin/x402-batching/server').GatewayMiddleware, skipInternalGateway?: boolean|((req:any)=>boolean) }} deps
  */
@@ -188,6 +206,93 @@ export function createSnomedRouter(deps) {
             })
           }
           return res.status(500).json({
+            ok: false,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            error: String(e?.message ?? e),
+          })
+        }
+      },
+    ),
+  )
+
+  router.post(
+    '/rf2/summary',
+    ...gate(
+      { enabled: paymentGateEnabled, amount: '0.01' },
+      async (req, res, paymentCtx) => {
+        const id = String(req.body?.conceptId ?? '').trim()
+        if (!/^\d+$/.test(id)) {
+          return res.status(400).json({
+            ok: false,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            error: 'conceptId must be numeric (SCTID)',
+          })
+        }
+        const key = process.env.FEATHERLESS_API_KEY?.trim()
+        if (!key) {
+          return res.status(503).json({
+            ok: false,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            error: 'FEATHERLESS_API_KEY not set on server.',
+          })
+        }
+        try {
+          const concept = await getRf2Concept(id)
+          if (!concept) {
+            return res.status(404).json({
+              ok: false,
+              receiptRef: paymentCtx.paymentReceiptRef ?? null,
+              error: 'Concept not found in local RF2 index',
+            })
+          }
+          const model = process.env.FEATHERLESS_MODEL?.trim() || 'Qwen/Qwen2.5-7B-Instruct'
+          const upstream = process.env.FEATHERLESS_API_URL?.trim() || 'https://api.featherless.ai/v1/chat/completions'
+          const payloadJson = JSON.stringify(concept).slice(0, 14000)
+          const prompt = [
+            'You are assisting with a local SNOMED CT RF2 terminology demo (UK package slice in SQLite).',
+            'Summarize in 5-7 short bullet points for clinical informatics / product reviewers.',
+            'Cover: preferred term / FSN, active status, description variety, parent/child IS-A context, and one line on demo-only / not for clinical use.',
+            `RF2 concept JSON (truncated): ${payloadJson}`,
+          ].join('\n')
+          const llm = await fetchJson(
+            upstream,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${key}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 500,
+              }),
+            },
+            25000,
+          )
+          const summary =
+            llm?.data?.choices?.[0]?.message?.content ??
+            llm?.data?.choices?.[0]?.text ??
+            (typeof llm?.data === 'string' ? llm.data : JSON.stringify(llm?.data))
+          return res.status(llm.ok ? 200 : 502).json({
+            ok: llm.ok,
+            receiptRef: paymentCtx.paymentReceiptRef ?? null,
+            conceptId: id,
+            summary,
+            model,
+            disclaimer: 'Featherless demo output only. Not clinical advice.',
+          })
+        } catch (e) {
+          if (e instanceof Rf2IndexNotReadyError) {
+            res.set('Retry-After', '5')
+            return res.status(503).json({
+              ok: false,
+              receiptRef: paymentCtx.paymentReceiptRef ?? null,
+              error: String(e?.message ?? e),
+              buildStatus: e.buildStatus,
+            })
+          }
+          return res.status(502).json({
             ok: false,
             receiptRef: paymentCtx.paymentReceiptRef ?? null,
             error: String(e?.message ?? e),
