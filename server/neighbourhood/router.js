@@ -32,7 +32,6 @@ function emptySearchHint(dataset, rowCount, stats) {
 }
 import { getEhrbaseHealth } from '../openehr/ehrbaseClient.js'
 import { getIntegrationContext, snomedReferencesWithUrls } from './snomedContext.js'
-import { getSnowstormStatus } from '../snomed/snowstormClient.js'
 
 function nowIso() {
   return new Date().toISOString()
@@ -47,15 +46,9 @@ export function createNeighbourhoodRouter(deps) {
   const paymentGateEnabled = process.env.NHS_ENABLE_PAYMENT_GATE !== 'false'
 
   router.get('/insights/context', async (_req, res) => {
-    let snowstorm = { configured: false }
-    try {
-      snowstorm = await getSnowstormStatus()
-    } catch (e) {
-      snowstorm = { configured: false, reachable: false, error: String(e?.message ?? e) }
-    }
     res.json({
       ok: true,
-      hackathon: getIntegrationContext({ snowstorm }),
+      hackathon: getIntegrationContext(),
       time: nowIso(),
     })
   })

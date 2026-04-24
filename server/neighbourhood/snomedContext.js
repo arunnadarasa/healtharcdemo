@@ -45,11 +45,8 @@ export function snomedReferencesWithUrls() {
   }))
 }
 
-/**
- * @param {{ snowstorm?: object }} [opts]
- */
-export function getIntegrationContext(opts = {}) {
-  const snowstorm = opts.snowstorm
+/** @returns {object} Static + references for neighbourhood “Hackathon integration” card (no Snowstorm payload). */
+export function getIntegrationContext() {
   return {
     openEhr: {
       summary:
@@ -68,17 +65,10 @@ export function getIntegrationContext(opts = {}) {
     },
     snomedCt: {
       summary:
-        'SNOMED CT codes support semantic interoperability; browse and validate concepts in the official browser.',
+        'SNOMED CT codes support semantic interoperability; browse and validate concepts in the official browser. Terminology browsing in this stack uses the local RF2 index (see SNOMED intelligence page), not a hosted Snowstorm instance.',
       browser: 'https://browser.ihtsdotools.org/',
       ihtsdoGithub: 'https://github.com/IHTSDO',
-      snowstorm: {
-        repo: 'https://github.com/IHTSDO/snowstorm',
-        dockerCompose: 'docker compose -f docker-compose.snowstorm.yml up -d',
-        env: 'SNOWSTORM_URL=http://localhost:8081',
-        apiPaths: ['/api/snomed/health', '/api/snomed/lookup/:conceptId'],
-        fhir: 'FHIR R4 CodeSystem $lookup against http://snomed.info/sct (requires SNOMED RF2 loaded in Snowstorm).',
-        status: snowstorm ?? undefined,
-      },
+      localRf2Path: '/nhs/snomed-intelligence',
     },
     references: snomedReferencesWithUrls(),
   }

@@ -35,20 +35,7 @@ type IntegrationContext = {
       summary?: string
       browser?: string
       ihtsdoGithub?: string
-      snowstorm?: {
-        repo?: string
-        dockerCompose?: string
-        env?: string
-        apiPaths?: string[]
-        fhir?: string
-        status?: {
-          configured?: boolean
-          reachable?: boolean
-          url?: string
-          error?: string
-          note?: string
-        }
-      }
+      localRf2Path?: string
     }
     references?: Array<{
       conceptId: string
@@ -182,55 +169,11 @@ function NeighbourhoodInsightsGrid({
             ))}
           </ul>
         ) : null}
-        {integration?.hackathon?.snomedCt?.snowstorm?.repo ? (
-          <div className="note" style={{ marginTop: '0.75rem' }}>
-            <p>
-              <strong>Snowstorm</strong> (
-              <a href={integration.hackathon.snomedCt.snowstorm.repo} target="_blank" rel="noreferrer">
-                IHTSDO/snowstorm
-              </a>
-              ): optional local terminology server (FHIR <code>$lookup</code>).{' '}
-              {integration.hackathon.snomedCt.snowstorm.status?.reachable ? (
-                <span>Status: reachable at {integration.hackathon.snomedCt.snowstorm.status?.url ?? '—'}.</span>
-              ) : integration.hackathon.snomedCt.snowstorm.status?.configured === false ? (
-                <span>Set {integration.hackathon.snomedCt.snowstorm.env ?? 'SNOWSTORM_URL'} and run Docker Compose.</span>
-              ) : (
-                <span>Configured but not reachable — check Docker.</span>
-              )}
-            </p>
-            <div className="actions" style={{ marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                className="secondary"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true)
-                  setOut('')
-                  const res = await fetch('/api/snomed/health')
-                  const j = await res.json()
-                  setOut(JSON.stringify(j, null, 2))
-                  setBusy(false)
-                }}
-              >
-                GET /api/snomed/health
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true)
-                  setOut('')
-                  const res = await fetch('/api/snomed/lookup/50849002')
-                  const j = await res.json()
-                  setOut(JSON.stringify(j, null, 2))
-                  setBusy(false)
-                }}
-              >
-                FHIR lookup 50849002
-              </button>
-            </div>
-          </div>
+        {integration?.hackathon?.snomedCt?.localRf2Path ? (
+          <p className="note" style={{ marginTop: '0.75rem' }}>
+            <strong>Local SNOMED RF2:</strong> browse and search the indexed UK/international RF2 package in-app —{' '}
+            <a href={integration.hackathon.snomedCt.localRf2Path}>SNOMED intelligence</a> (no Snowstorm required).
+          </p>
         ) : null}
       </article>
 
