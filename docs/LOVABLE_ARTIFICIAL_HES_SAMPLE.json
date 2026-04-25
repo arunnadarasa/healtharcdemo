@@ -1,0 +1,78 @@
+{
+  "_meta": {
+    "purpose": "Artificial HES sample paths + preset paid neighbourhood API bodies for Lovable / forks. Synthetic admin data only — not for clinical use.",
+    "disclaimer": "Synthetic artificial HES — demo only; no real patients.",
+    "ingest": {
+      "script": "npm run ingest:hes",
+      "regenerate_csvs": "npm run hes:generate-lovable-sample",
+      "env": {
+        "HES_CLEAR_FIRST": "1 for clean load",
+        "HES_AE_DIR": "examples/lovable-artificial-hes/csv/ae",
+        "HES_OP_DIR": "examples/lovable-artificial-hes/csv/op",
+        "HES_APC_DIR": "examples/lovable-artificial-hes/csv/apc",
+        "HES_ROW_LIMIT_PER_FILE": "optional cap per file",
+        "HES_SQLITE_PATH": "optional; default data/neighbourhood-hes.db (gitignored)"
+      },
+      "fts_rebuild": "npm run hes:rebuild-fts",
+      "csv_files": {
+        "ae": "examples/lovable-artificial-hes/csv/ae/artificial_hes_ae_lovable_sample.csv",
+        "op": "examples/lovable-artificial-hes/csv/op/artificial_hes_op_lovable_sample.csv",
+        "apc": "examples/lovable-artificial-hes/csv/apc/artificial_hes_apc_lovable_sample.csv"
+      },
+      "official_large_datasets": "https://digital.nhs.uk/services/artificial-data"
+    },
+    "client": {
+      "paid_post": "src/nhsApi.ts apiPost — wraps nhsX402Fetch; include session.wallet + network in body as existing NHS pages do.",
+      "neighbourhood_insights_route": "/nhs/neighbourhood-insights",
+      "hes_scale_route": "/nhs/hes-scale"
+    },
+    "performance_note": "Empty lsoa on POST /api/neighbourhood/insights/lsoa runs full-table GROUP BY — can take many minutes on multi-million-row AE ingests. Prefer a concrete LSOA for demos (see docs/CLINICALARC_X402_LEARNINGS_AND_BEST_PRACTICES.md #17)."
+  },
+  "scenarios": [
+    {
+      "id": "hes-001",
+      "label": "Paid LSOA aggregate (indexed LSOA)",
+      "method": "POST",
+      "path": "/api/neighbourhood/insights/lsoa",
+      "body": { "lsoa": "E01022770", "network": "testnet" }
+    },
+    {
+      "id": "hes-002",
+      "label": "Paid LSOA aggregate (full rollup — slow at scale)",
+      "method": "POST",
+      "path": "/api/neighbourhood/insights/lsoa",
+      "body": { "network": "testnet" },
+      "warning": "Omit lsoa or send empty string only for deliberate load tests; UI timer includes x402 + SQLite."
+    },
+    {
+      "id": "hes-003",
+      "label": "Paid LLM summary (Featherless)",
+      "method": "POST",
+      "path": "/api/neighbourhood/insights/summary",
+      "body": { "lsoa": "E01022770", "network": "testnet" },
+      "server_requires": ["FEATHERLESS_API_KEY"]
+    },
+    {
+      "id": "hes-004",
+      "label": "Paid HES scale search",
+      "method": "POST",
+      "path": "/api/neighbourhood/scale/search",
+      "body": {
+        "q": "E01022770",
+        "dataset": "ae",
+        "limit": 25,
+        "offset": 0,
+        "mode": "prefix",
+        "network": "testnet"
+      }
+    },
+    {
+      "id": "hes-005",
+      "label": "Paid cross-dataset summary",
+      "method": "POST",
+      "path": "/api/neighbourhood/scale/cross-summary",
+      "body": { "lsoa": "E01022770", "network": "testnet" },
+      "server_requires": ["FEATHERLESS_API_KEY"]
+    }
+  ]
+}

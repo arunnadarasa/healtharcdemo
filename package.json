@@ -13,6 +13,7 @@
     "build:llm": "node scripts/build-llm-full.mjs",
     "smoke:nhs": "node scripts/nhs-smoke.mjs",
     "ingest:hes": "node scripts/ingest-artificial-hes.mjs",
+    "hes:generate-lovable-sample": "node scripts/generate-artificial-hes-sample-csv.mjs",
     "hes:rebuild-fts": "node scripts/rebuild-hes-fts.mjs",
     "burst:hackathon": "node scripts/hackathon-burst.mjs",
     "snowstorm:up": "docker compose -f docker-compose.snowstorm.yml up -d",

@@ -1,0 +1,6 @@
+scenario_id,label,method,path,lsoa_filter,search_q,dataset,search_mode,limit,summary_note
+hes-001,Paid LSOA aggregate (indexed LSOA),POST,/api/neighbourhood/insights/lsoa,E01022770,,,,,Fast path — single LSOA uses idx_hes_ae_lsoa.
+hes-002,Paid LSOA aggregate (full rollup warning),POST,/api/neighbourhood/insights/lsoa,,,,,,Empty lsoa = GROUP BY all AE rows — slow at scale; demo only.
+hes-003,Paid LLM summary (Featherless),POST,/api/neighbourhood/insights/summary,E01022770,,,,,Server needs FEATHERLESS_API_KEY; prompt includes aggregates.
+hes-004,Paid HES scale search,POST,/api/neighbourhood/scale/search,,E01022770,ae,prefix,25,FTS/prefix over ingested AE; paid x402.
+hes-005,Paid cross-dataset summary,POST,/api/neighbourhood/scale/cross-summary,E01022770,,,,,Featherless narrative over AE+OP+APC aggregates; server key required.
