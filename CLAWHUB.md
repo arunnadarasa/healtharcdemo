@@ -310,52 +310,58 @@ Core docs to reuse:
      - rebuild FTS from remaining datasets,
      - ingest full AE set with no per-file cap.
 
+4. **Paid LSOA aggregate (`/nhs/neighbourhood-insights`) — empty filter is the slow path**
+   - **Empty** optional LSOA → server **`GROUP BY lsoa`** over essentially all **`hes_ae`** rows (e.g. **15M** AE only ingest) → **many minutes** of SQLite work on a laptop.
+   - **Filled** LSOA (indexed lookup) → fast.
+   - UI **“Ns elapsed”** on **Run paid aggregate** is the **whole** paid **`fetch`** (x402 + handler), not DB-only; do not blame SNOMED hooks (static list).
+   - **Default UX:** LSOA input prefilled **`E01022770`** in **`NhsNeighbourhoodInsightsApp.tsx`** so demos avoid accidental full-table aggregates.
+
 ### B) NHS x402 tx history behavior
 
-4. **Paid NHS writes are enforced through `nhsX402Fetch`**
+5. **Paid NHS writes are enforced through `nhsX402Fetch`**
    - Paid POSTs in client API path are always routed through x402 payment fetch.
    - No user-facing “direct fetch” payment mode for those paid routes.
 
-5. **“Audit” rows are expected when no tx hash is surfaced**
+6. **“Audit” rows are expected when no tx hash is surfaced**
    - Audit means request/receipt metadata was logged but no usable tx hash was found in payload/headers.
    - It does not prove settlement failed off-chain.
 
-6. **Tx hash extraction needed broader parsing**
+7. **Tx hash extraction needed broader parsing**
    - Added parsing for multiple header variants + nested JSON fields (`transactionHash`, `hash`, `payment*`, `receiptRef`, etc.).
    - This reduced false “audit-only” entries and improved `/tx/0x...` linking.
 
 ### C) Wallet UX and Circle integration
 
-7. **Circle developer wallet endpoint added**
+8. **Circle developer wallet endpoint added**
    - `POST /api/circle/dev-wallet` in `server/index.js`.
    - Uses `CIRCLE_API_KEY` + `CIRCLE_ENTITY_SECRET` server-side only.
    - Returns `walletSetId`, `walletId`, `address`, `blockchain`.
 
-8. **Top-bar wallet UX now has two explicit modes**
+9. **Top-bar wallet UX now has two explicit modes**
    - `MetaMask` mode (browser wallet connect/sign flow)
    - `Circle wallet` mode (create/use server-created wallet identity)
    - Important caveat: current x402 client signing still relies on browser wallet injection for paid POST signature flow.
 
-9. **Regression caught quickly**
+10. **Regression caught quickly**
    - Missing `randomUUID` import broke Circle wallet creation endpoint.
    - Fix: import from `node:crypto`; include endpoint smoke test after restart.
 
 ### D) Snowstorm / Docker ops
 
-10. **Snowstorm startup can fail from memory pressure**
+11. **Snowstorm startup can fail from memory pressure**
    - Symptom: `snowstorm-elasticsearch` exits `137`; Snowstorm logs `es: No address associated with hostname`.
    - Fix in `docker-compose.snowstorm.yml`:
      - reduce ES JVM heap (`-Xms512m -Xmx512m`)
      - reduce Snowstorm JVM heap (`-Xms512m -Xmx1g`)
 
-11. **RF2 local import working flow**
+12. **RF2 local import working flow**
    - Start Snowstorm compose, wait for health `UP`.
    - Use `/imports` to create import job (ID in `Location` header).
    - Upload archive to `/imports/{id}/archive`.
    - Poll `/imports/{id}` until completion.
    - For this run: used local folder `uk_sct2cl_42.0.0_20260408000001Z` and imported UK Edition RF2 archive.
 
-12. **`Exited (137)` is usually OOM, but always verify current state**
+13. **`Exited (137)` is usually OOM, but always verify current state**
    - Meaning: process was killed with `SIGKILL` (`128 + 9 = 137`), commonly memory pressure.
    - Current verified state (post-tuning):
      - `snowstorm`, `snowstorm-elasticsearch`, `ehrbase`, `ehrdb` are running.
@@ -364,5 +370,5 @@ Core docs to reuse:
      - `docker ps -a --format 'table {{.Names}}\t{{.Status}}'`
      - `docker inspect <name> --format 'status={{.State.Status}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}}'`
      - `docker stats --no-stream` to watch memory headroom under load.
-   - Note: with Docker memory around ~3.8GiB and multiple stacks active, keep JVM heap conservative (see item 10).
+   - Note: with Docker memory around ~3.8GiB and multiple stacks active, keep JVM heap conservative (see item 11).
 

@@ -60,6 +60,9 @@ Aligned references:
 5. **Tx extraction only from one source is fragile.**  
    Payment metadata can appear in headers or payloads; robust audit needs multi-source extraction and safe fallbacks.
 
+6. **Neighbourhood “paid LSOA aggregate” with an empty filter looked hung.**  
+   The UI timer covers the **entire** paid HTTP call (wallet / x402 **and** server). An **empty** LSOA runs a **full-table** SQLite `GROUP BY` over millions of synthetic AE rows and can take **many minutes**; it is not SNOMED enrichment (that payload is a tiny static list). Use a **concrete LSOA** for demos; this app now prefills **`E01022770`** on `/nhs/neighbourhood-insights`.
+
 ## Best Practices (Recommended for Participants)
 
 1. **Use a clear boundary:**

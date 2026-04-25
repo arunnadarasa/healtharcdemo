@@ -64,7 +64,7 @@ function NeighbourhoodInsightsGrid({
   x402Provider: X402FacilitatorId
   onX402ProviderChange: (v: X402FacilitatorId) => void
 }) {
-  const [lsoa, setLsoa] = useState('')
+  const [lsoa, setLsoa] = useState('E01022770')
   const [aql, setAql] = useState(DEFAULT_AQL)
   const [out, setOut] = useState<string>('')
   const [busy, setBusy] = useState(false)

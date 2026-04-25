@@ -115,6 +115,11 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 16. **x402 client timeout vs slow HES / LLM**  
     **`nhsArcPaidFetch`** applies **`AbortSignal.timeout`** to paid **`fetch`** (Circle or Thirdweb). Default was **90s**; large FTS/prefix work plus settlement can exceed that — default is now **300000 ms (5 min)** with env **`VITE_X402_REQUEST_TIMEOUT_MS`** up to **900000 ms**. The timeout message in **`nhsApi`** points at this knob. **Restart Vite** after changing **`VITE_*`**.
 
+17. **Paid LSOA aggregate: empty filter = full-table scan (not “x402 stuck”)**  
+    **`POST /api/neighbourhood/insights/lsoa`** with **no / empty** LSOA runs **`aggregateAeByLsoa(null)`**: `GROUP BY lsoa` over **all** non-null `hes_ae` rows (e.g. **15M** after a full artificial AE ingest). That can take **many minutes** on laptop SQLite. With a **specific** LSOA string, the query uses **`idx_hes_ae_lsoa`** and is typically **fast**.  
+    The UI string **“Running LSOA aggregate… Ns elapsed”** wraps **`apiPost` → `nhsX402Fetch`** until the HTTP response completes, so elapsed time is **x402 / facilitator** **plus** server work — not SQLite alone. In one instrumented run (Thirdweb), **`preHandlerMs` ~2.5s** reached the handler while **`aggregateAeByLsoa`** was still running **100s+** for an empty filter (second log line only appears after SQLite returns). **`snomedReferencesWithUrls()`** is static and negligible.  
+    **Demo default:** **`src/NhsNeighbourhoodInsightsApp.tsx`** prefills **`E01022770`** on the LSOA field so “Run paid aggregate” does not accidentally trigger the slow path.
+
 ---
 
 ## 4. Best practices (checklist)
@@ -130,6 +135,7 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 - [ ] **`NHS_ENABLE_PAYMENT_GATE=false`** only for local debugging without wallet — don’t ship that for paid demos.  
 - [ ] After **any** `VITE_*` change, **restart Vite**.
 - [ ] Slow paid neighbourhood/HES calls: if **`signal timed out`** appears, raise **`VITE_X402_REQUEST_TIMEOUT_MS`** (defaults **300000** ms) or reduce query cost — not every failure is “wallet didn’t sign.”
+- [ ] **LSOA paid aggregate:** use a **real LSOA code** for demos; **empty filter** = full rollup over **`hes_ae`** and can exceed **5 minutes** on large ingests — see pitfalls **#17**.
 
 ### Engineering
 
@@ -182,4 +188,4 @@ For shorter Circle-focused notes, see **`docs/ARC_X402_NOTES.md`**. For an earli
 
 ---
 
-*Last updated: Added x402 client timeout / `VITE_X402_REQUEST_TIMEOUT_MS` (item 16) + checklist line; item 15 HES free GET; dm+d upstream, Snowstorm, Vite/API race — Clinical Arc, Arc Testnet, x402.*
+*Last updated: Item **#17** (paid LSOA empty-filter full-table aggregate vs indexed single-LSOA; UI elapsed = x402 + SQLite; default prefill `E01022770`) + checklist line — Clinical Arc, Arc Testnet, x402.*
