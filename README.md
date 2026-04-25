@@ -167,12 +167,14 @@ Use `/nhs/onchain-runner` for hackathon evidence in two lanes:
 
 1. **Direct on-chain transfer mode**: strict tx-per-attempt proof; each successful attempt must return `0x...` hash. **Requires MetaMask wallet mode** (uses injected `window.ethereum`); not available when the hub is in **Circle wallet** mode.
 2. **Circle x402 nanopayments mode**: logs paid request success per attempt while allowing settlement to batch. Runs with **MetaMask or Circle** when x402 / Gateway prerequisites are met.
-3. Recommended volume run: **batch size 10** and **batch count 5** (50 total sequential attempts).
-4. Export both artifacts: `runner-attempts-*.json` and `runner-summary-*.json`.
-5. For nanopayments mode, explain that successful paid calls can exceed visible on-chain tx count due to batching in Circle Gateway.
-6. **Persistence and recovery:** attempts are saved in the browser; **Clear output** clears the screen only; **Delete stored history** wipes saved attempts; **Import attempts JSON** restores from a prior `runner-attempts-*.json` export.
-7. **Table UX:** filter by mode (all / direct / Circle x402), **51 rows per page**, and date/time column for each attempt. **Status column:** **Tx on-chain** when a transaction hash is present; **Paid (x402)** when the nanopayment call succeeded without a per-request hash (batched settlement); **Failed** otherwise—so judges are not misled when `txHash` is empty in x402 mode.
-8. **Import / export round-trip:** each exported attempt row includes **`ok`** plus the fields above. Imports **normalize** older files that omitted `ok` or only implied success via `paymentStatus`, infer **x402 vs direct** from `mode` or from `endpoint` (`/api/...` → x402 lane). After import, the **transactions view filter resets to “All transaction modes”** so a leftover “Direct only” filter does not hide x402 rows.
+3. **Circle transfer per attempt mode**: calls `POST /api/circle/runner-transfer` once per attempt (best match to Circle Console “one transfer row per attempt” evidence).
+4. In Circle transfer mode, the runner records both `circleTransferId` and `transferState`. A new status lookup route (`GET /api/circle/runner-transfer/status/:transferId`) resolves late-arriving `txHash` when initial create response is still queued.
+5. Recommended volume run: **batch size 10** and **batch count 5** (50 total sequential attempts).
+6. Export both artifacts: `runner-attempts-*.json` and `runner-summary-*.json`.
+7. For nanopayments mode, explain that successful paid calls can exceed visible on-chain tx count due to batching in Circle Gateway.
+8. **Persistence and recovery:** attempts are saved in the browser; **Clear output** clears the screen only; **Delete stored history** wipes saved attempts; **Import attempts JSON** restores from a prior `runner-attempts-*.json` export.
+9. **Table UX:** filter by mode (all / direct / Circle x402 / Circle transfer), **51 rows per page**, and date/time column for each attempt. **Status column:** **Tx on-chain** when a transaction hash is present; **Paid (x402)** when paid call succeeded without per-request hash (batched settlement); **Circle transfer** when transfer was accepted but may still be `QUEUED`; **Failed** otherwise.
+10. **Import / export round-trip:** each exported attempt row includes **`ok`** plus mode-specific fields (including `circleTransferId` / `transferState` for Circle transfer mode). Imports **normalize** older files that omitted `ok` or only implied success via `paymentStatus`, infer **x402 vs direct** from `mode` or from `endpoint` (`/api/...` → x402 lane). After import, the **transactions view filter resets to “All transaction modes”** so a leftover narrow filter does not hide restored rows.
 
 ### SNOMED local RF2 browser (full package)
 

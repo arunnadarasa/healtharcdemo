@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import multer from 'multer'
-import { randomUUID } from 'node:crypto'
+import { constants as cryptoConstants, publicEncrypt, randomUUID } from 'node:crypto'
 import { Receipt } from './receiptWire.js'
 import * as x402Env from './x402Env.js'
 import { createGatewayMiddleware } from '@circle-fin/x402-batching/server'
@@ -63,6 +63,9 @@ const ARC_TESTNET_USDC = '0x3600000000000000000000000000000000000000'
 const ARC_TESTNET_GATEWAY_WALLET = '0x0077777d7EBA4688BDeF3E311b846F25870A19B9'
 const GATEWAY_API_TESTNET = 'https://gateway-api-testnet.circle.com/v1'
 const ARC_GATEWAY_DOMAIN = 26
+const CIRCLE_API_BASE = process.env.CIRCLE_API_BASE?.trim() || 'https://api.circle.com'
+const CIRCLE_RUNNER_TRANSFER_PATH =
+  process.env.CIRCLE_RUNNER_TRANSFER_PATH?.trim() || '/v1/w3s/developer/transactions/transfer'
 
 function gatewayRequireUsd(price) {
   const s = typeof price === 'number' ? price.toFixed(2) : String(price)
@@ -80,6 +83,103 @@ function circleDevWalletClientOrError() {
     }
   }
   return { client: initiateDeveloperControlledWalletsClient({ apiKey, entitySecret }) }
+}
+
+function txHashFromCircleTransferBody(payload) {
+  if (!payload || typeof payload !== 'object') return null
+  const o = payload
+  const direct = [o?.txHash, o?.transactionHash, o?.hash]
+  for (const entry of direct) {
+    if (typeof entry === 'string' && /^0x[a-fA-F0-9]{64}$/.test(entry.trim())) return entry.trim()
+  }
+  const nested =
+    txHashFromCircleTransferBody(o?.data) ||
+    txHashFromCircleTransferBody(o?.transaction) ||
+    txHashFromCircleTransferBody(o?.response) ||
+    null
+  if (nested) return nested
+  try {
+    const raw = JSON.stringify(payload)
+    const match = raw.match(/0x[a-fA-F0-9]{64}/)
+    return match ? match[0] : null
+  } catch {
+    return null
+  }
+}
+
+async function fetchCircleTransferStatus(apiKey, transferId) {
+  if (!transferId) return null
+  const paths = [`/v1/w3s/developer/transactions/${transferId}`, `/v1/w3s/transactions/${transferId}`]
+  for (const path of paths) {
+    try {
+      const r = await fetch(`${CIRCLE_API_BASE}${path}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const payload = await r.json().catch(() => ({}))
+      if (!r.ok) continue
+      const txHash = txHashFromCircleTransferBody(payload)
+      const state =
+        payload?.data?.state ??
+        payload?.data?.transaction?.state ??
+        payload?.data?.transaction?.transactionState ??
+        null
+      if (txHash || state) {
+        return {
+          txHash: txHash ?? null,
+          state: typeof state === 'string' ? state : null,
+        }
+      }
+    } catch {
+      // ignore and try next path
+    }
+  }
+  return null
+}
+
+function normalizeEntitySecretBytes(value) {
+  const raw = typeof value === 'string' ? value.trim() : ''
+  if (!raw) throw new Error('Entity secret is missing.')
+  if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, 'hex')
+  const decoded = Buffer.from(raw, 'base64')
+  if (decoded.length === 32) return decoded
+  throw new Error('Entity secret must be 32 bytes (hex or base64).')
+}
+
+function toPemPublicKey(publicKeyRaw) {
+  const raw = typeof publicKeyRaw === 'string' ? publicKeyRaw.trim() : ''
+  if (!raw) throw new Error('Circle public key missing.')
+  if (raw.includes('BEGIN PUBLIC KEY')) return raw
+  const chunks = raw.replace(/\s+/g, '').match(/.{1,64}/g) || []
+  return `-----BEGIN PUBLIC KEY-----\n${chunks.join('\n')}\n-----END PUBLIC KEY-----`
+}
+
+async function generateCircleEntitySecretCiphertext(apiKey, entitySecretRaw) {
+  const keyRes = await fetch(`${CIRCLE_API_BASE}/v1/w3s/config/entity/publicKey`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+  })
+  const keyPayload = await keyRes.json().catch(() => ({}))
+  if (!keyRes.ok) {
+    throw new Error(keyPayload?.message || 'Failed to fetch Circle entity public key.')
+  }
+  const pem = toPemPublicKey(keyPayload?.data?.publicKey)
+  const secretBytes = normalizeEntitySecretBytes(entitySecretRaw)
+  const encrypted = publicEncrypt(
+    {
+      key: pem,
+      padding: cryptoConstants.RSA_PKCS1_OAEP_PADDING,
+      oaepHash: 'sha256',
+    },
+    secretBytes,
+  )
+  return encrypted.toString('base64')
 }
 
 const judgeScores = []
@@ -709,6 +809,175 @@ app.post('/api/circle/gateway-balance', async (req, res) => {
   } catch (e) {
     return res.status(502).json({ error: 'Circle Gateway balance request failed.', details: e?.message ?? String(e) })
   }
+})
+
+/** Dedicated Circle transfer endpoint for runner evidence (1 transfer attempt per call). */
+app.post('/api/circle/runner-transfer', async (req, res) => {
+  const apiKey = process.env.CIRCLE_API_KEY?.trim()
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Missing CIRCLE_API_KEY on server.' })
+  }
+  const walletId = typeof req.body?.walletId === 'string' ? req.body.walletId.trim() : ''
+  const amountMinor = Number(req.body?.amountMinor)
+  const memo = typeof req.body?.memo === 'string' ? req.body.memo.trim() : 'ClinicalArc runner transfer'
+  const destinationAddress =
+    (typeof req.body?.destinationAddress === 'string' ? req.body.destinationAddress.trim() : '') ||
+    process.env.CIRCLE_DESTINATION_ADDRESS?.trim() ||
+    ''
+  const tokenId =
+    (typeof req.body?.tokenId === 'string' ? req.body.tokenId.trim() : '') ||
+    process.env.CIRCLE_TOKEN_ID?.trim() ||
+    ''
+  const tokenAddress =
+    (typeof req.body?.tokenAddress === 'string' ? req.body.tokenAddress.trim() : '') ||
+    process.env.CIRCLE_TOKEN_ADDRESS?.trim() ||
+    ''
+  const blockchain =
+    (typeof req.body?.blockchain === 'string' ? req.body.blockchain.trim() : '') ||
+    process.env.CIRCLE_TOKEN_BLOCKCHAIN?.trim() ||
+    'ARC-TESTNET'
+  const incomingCiphertext =
+    (typeof req.body?.entitySecretCiphertext === 'string' ? req.body.entitySecretCiphertext.trim() : '') ||
+    process.env.CIRCLE_ENTITY_SECRET_CIPHERTEXT?.trim() ||
+    process.env.CIRCLE_ENTITY_SECRET?.trim() ||
+    ''
+
+  if (!walletId) return res.status(400).json({ error: 'walletId is required.' })
+  if (!Number.isInteger(amountMinor) || amountMinor < 1) {
+    return res.status(400).json({ error: 'amountMinor must be an integer >= 1.' })
+  }
+  if (!destinationAddress) {
+    return res.status(400).json({
+      error: 'Missing destination address. Provide destinationAddress or set CIRCLE_DESTINATION_ADDRESS.',
+    })
+  }
+  if (!tokenId && !tokenAddress) {
+    return res.status(400).json({
+      error:
+        'Missing token selector. Provide tokenId or tokenAddress (+ optional blockchain), or set CIRCLE_TOKEN_ID / CIRCLE_TOKEN_ADDRESS.',
+    })
+  }
+
+  try {
+    let entitySecretCiphertext = incomingCiphertext
+    const entitySecretRaw = process.env.CIRCLE_ENTITY_SECRET?.trim() || ''
+    if (entitySecretRaw) {
+      try {
+        entitySecretCiphertext = await generateCircleEntitySecretCiphertext(apiKey, entitySecretRaw)
+      } catch (cipherError) {
+        console.warn('[circle-runner-transfer] fresh ciphertext generation failed; using fallback.', {
+          reason: cipherError?.message ?? String(cipherError),
+        })
+        entitySecretCiphertext = incomingCiphertext
+      }
+    }
+    const payload = {
+      walletId,
+      destinationAddress,
+      amounts: [(amountMinor / 100).toFixed(2)],
+      feeLevel: 'MEDIUM',
+      idempotencyKey: randomUUID(),
+      metadata: { memo: memo || 'ClinicalArc runner transfer' },
+      ...(entitySecretCiphertext ? { entitySecretCiphertext } : {}),
+      ...(tokenId ? { tokenId } : { tokenAddress, blockchain }),
+    }
+    const headers = {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      ...(process.env.CIRCLE_ENTITY_SECRET?.trim()
+        ? { 'X-Entity-Secret': process.env.CIRCLE_ENTITY_SECRET.trim() }
+        : {}),
+    }
+    const r = await fetch(`${CIRCLE_API_BASE}${CIRCLE_RUNNER_TRANSFER_PATH}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    })
+    const text = await r.text()
+    let body = {}
+    try {
+      body = text ? JSON.parse(text) : {}
+    } catch {
+      body = { raw: text }
+    }
+    if (!r.ok) {
+      const details = body?.message ?? body?.error ?? body
+      return res.status(r.status).json({
+        error: 'Circle runner transfer failed.',
+        details,
+      })
+    }
+    const circleTransferId = body?.data?.id ?? body?.id ?? null
+    const inlineTxHash = txHashFromCircleTransferBody(body)
+    const lookedUp = inlineTxHash ? { txHash: inlineTxHash, state: null } : await fetchCircleTransferStatus(apiKey, circleTransferId)
+    const lookedUpTxHash = lookedUp?.txHash ?? null
+    return res.status(201).json({
+      ok: true,
+      circleTransferId,
+      txHash: lookedUpTxHash,
+      transferState: lookedUp?.state ?? null,
+      walletId,
+      amountMinor,
+      destinationAddress,
+      response: body,
+    })
+  } catch (e) {
+    const status = Number(e?.response?.status) || 502
+    const details = e?.response?.data ?? e?.message ?? String(e)
+    return res.status(status).json({
+      error: 'Circle runner transfer failed.',
+      details,
+    })
+  }
+})
+
+app.get('/api/circle/runner-transfer/status/:transferId', async (req, res) => {
+  const apiKey = process.env.CIRCLE_API_KEY?.trim()
+  if (!apiKey) return res.status(500).json({ error: 'Missing CIRCLE_API_KEY on server.' })
+  const transferId = typeof req.params?.transferId === 'string' ? req.params.transferId.trim() : ''
+  if (!transferId) return res.status(400).json({ error: 'transferId is required.' })
+  try {
+    const status = await fetchCircleTransferStatus(apiKey, transferId)
+    return res.status(200).json({
+      ok: true,
+      transferId,
+      txHash: status?.txHash ?? null,
+      transferState: status?.state ?? null,
+    })
+  } catch (e) {
+    return res.status(502).json({ error: 'Failed to fetch transfer status.', details: e?.message ?? String(e) })
+  }
+})
+
+app.get('/api/circle/runner-transfer/preflight', (_req, res) => {
+  const hasApiKey = Boolean(process.env.CIRCLE_API_KEY?.trim())
+  const hasDestination = Boolean(process.env.CIRCLE_DESTINATION_ADDRESS?.trim())
+  const hasTokenSelector = Boolean(
+    process.env.CIRCLE_TOKEN_ID?.trim() ||
+      (process.env.CIRCLE_TOKEN_ADDRESS?.trim() && process.env.CIRCLE_TOKEN_BLOCKCHAIN?.trim()),
+  )
+  const hasSecretMaterial = Boolean(
+    process.env.CIRCLE_ENTITY_SECRET?.trim() || process.env.CIRCLE_ENTITY_SECRET_CIPHERTEXT?.trim(),
+  )
+  const ok = hasApiKey && hasDestination && hasTokenSelector && hasSecretMaterial
+  return res.status(200).json({
+    ok,
+    checks: {
+      hasApiKey,
+      hasDestination,
+      hasTokenSelector,
+      hasSecretMaterial,
+    },
+    hints: [
+      !hasApiKey ? 'Set CIRCLE_API_KEY on server.' : null,
+      !hasDestination ? 'Set CIRCLE_DESTINATION_ADDRESS on server.' : null,
+      !hasTokenSelector
+        ? 'Set CIRCLE_TOKEN_ID or CIRCLE_TOKEN_ADDRESS (+ CIRCLE_TOKEN_BLOCKCHAIN) on server.'
+        : null,
+      !hasSecretMaterial ? 'Set CIRCLE_ENTITY_SECRET and/or CIRCLE_ENTITY_SECRET_CIPHERTEXT on server.' : null,
+      'Fund Circle wallet and verify balance in Circle dashboard before x50.',
+    ].filter(Boolean),
+  })
 })
 
 function canonicalizeEip712TypedData(input) {

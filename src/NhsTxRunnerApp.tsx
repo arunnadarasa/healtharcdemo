@@ -13,7 +13,10 @@ type RunnerTarget = {
   endpoint: string
   payloadFactory: () => Record<string, unknown>
 }
-type RunnerMode = 'direct_onchain_transfer' | 'x402_circle_nanopayments'
+type RunnerMode =
+  | 'direct_onchain_transfer'
+  | 'x402_circle_nanopayments'
+  | 'circle_transfer_per_attempt'
 type AttemptResult = {
   index: number
   mode: RunnerMode
@@ -22,6 +25,8 @@ type AttemptResult = {
   paymentStatus: 'paid' | 'failed'
   settlementObserved: boolean
   txHash: string | null
+  circleTransferId: string | null
+  transferState: string | null
   explorerUrl: string | null
   error: string | null
   batchIndex: number
@@ -30,6 +35,7 @@ type AttemptResult = {
 
 const RUNNER_ATTEMPTS_KEY = 'nhs_onchain_runner_attempts_v1'
 const RUNNER_PAGE_SIZE = 51
+const CIRCLE_WALLET_META_KEY = 'nhs_circle_wallet_meta_v1'
 
 /** Round-trip exports omitted `ok` for a while — infer mode/`ok` so imports and localStorage reload stay valid. */
 function normalizeAttemptRow(input: Partial<AttemptResult> & { index?: unknown }): AttemptResult | null {
@@ -37,7 +43,11 @@ function normalizeAttemptRow(input: Partial<AttemptResult> & { index?: unknown }
     return null
   }
   let mode: RunnerMode
-  if (input.mode === 'x402_circle_nanopayments' || input.mode === 'direct_onchain_transfer') {
+  if (
+    input.mode === 'x402_circle_nanopayments' ||
+    input.mode === 'direct_onchain_transfer' ||
+    input.mode === 'circle_transfer_per_attempt'
+  ) {
     mode = input.mode
   } else if (input.endpoint.startsWith('/api/')) {
     mode = 'x402_circle_nanopayments'
@@ -55,10 +65,25 @@ function normalizeAttemptRow(input: Partial<AttemptResult> & { index?: unknown }
     paymentStatus,
     settlementObserved: Boolean(input.settlementObserved),
     txHash: input.txHash == null || input.txHash === '' ? null : String(input.txHash),
+    circleTransferId:
+      input.circleTransferId == null || input.circleTransferId === '' ? null : String(input.circleTransferId),
+    transferState: input.transferState == null || input.transferState === '' ? null : String(input.transferState),
     explorerUrl: input.explorerUrl == null || input.explorerUrl === '' ? null : String(input.explorerUrl),
     error: input.error == null || input.error === '' ? null : String(input.error),
     batchIndex: typeof input.batchIndex === 'number' && Number.isFinite(input.batchIndex) ? input.batchIndex : 1,
     createdAt: input.createdAt,
+  }
+}
+
+function getStoredCircleWalletId(): string | null {
+  const raw = localStorage.getItem(CIRCLE_WALLET_META_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as { walletId?: string }
+    if (typeof parsed.walletId !== 'string' || !parsed.walletId.trim()) return null
+    return parsed.walletId.trim()
+  } catch {
+    return null
   }
 }
 
@@ -117,6 +142,9 @@ function runnerAttemptBadge(row: AttemptResult): { label: string; className: str
   if (row.mode === 'x402_circle_nanopayments') {
     return { label: 'Paid (x402)', className: 'tx-badge tx-badge--paid' }
   }
+  if (row.mode === 'circle_transfer_per_attempt') {
+    return { label: 'Circle transfer', className: 'tx-badge tx-badge--paid' }
+  }
   return { label: 'OK', className: 'tx-badge tx-badge--chain' }
 }
 
@@ -173,6 +201,23 @@ function toUiErrorMessage(error: unknown): string {
   return 'Unexpected wallet/provider error.'
 }
 
+async function checkCircleTransferPreflight(): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const res = await fetch('/api/circle/runner-transfer/preflight')
+    const body = (await res.json().catch(() => ({}))) as {
+      ok?: boolean
+      hints?: string[]
+    }
+    if (!res.ok || !body?.ok) {
+      const hint = Array.isArray(body?.hints) && body.hints.length > 0 ? body.hints[0] : 'Circle transfer preflight failed.'
+      return { ok: false, message: hint }
+    }
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: toUiErrorMessage(error) }
+  }
+}
+
 function RunnerGrid({ session }: { session: NhsSession }) {
   const [mode, setMode] = useState<RunnerMode>('direct_onchain_transfer')
   const [viewMode, setViewMode] = useState<'all' | RunnerMode>('all')
@@ -225,6 +270,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         paymentStatus: 'failed',
         settlementObserved: false,
         txHash: null,
+        circleTransferId: null,
+        transferState: null,
         explorerUrl: null,
         error: 'Wallet provider not found.',
         batchIndex,
@@ -261,6 +308,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
           paymentStatus: 'failed',
           settlementObserved: false,
           txHash: txHash || null,
+          circleTransferId: null,
+          transferState: null,
           explorerUrl: txHash ? toExplorerUrl(session.network, txHash) : null,
           error: 'Direct on-chain transaction did not return a valid tx hash.',
           batchIndex,
@@ -275,6 +324,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         paymentStatus: 'paid',
         settlementObserved: true,
         txHash,
+        circleTransferId: null,
+        transferState: null,
         explorerUrl: toExplorerUrl(session.network, txHash),
         error: null,
         batchIndex,
@@ -290,6 +341,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         paymentStatus: 'failed',
         settlementObserved: false,
         txHash: null,
+        circleTransferId: null,
+        transferState: null,
         explorerUrl: null,
         error: message,
         batchIndex,
@@ -313,6 +366,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         paymentStatus: 'failed',
         settlementObserved: false,
         txHash: null,
+        circleTransferId: null,
+        transferState: null,
         explorerUrl: null,
         error: res.error,
         batchIndex,
@@ -328,6 +383,7 @@ function RunnerGrid({ session }: { session: NhsSession }) {
       paymentStatus: 'paid',
       settlementObserved: observed,
       txHash: res.txHash ?? null,
+      circleTransferId: null,
       explorerUrl: res.explorerUrl ?? (res.txHash ? toExplorerUrl(session.network, res.txHash) : null),
       error: null,
       batchIndex,
@@ -335,10 +391,120 @@ function RunnerGrid({ session }: { session: NhsSession }) {
     }
   }
 
+  const runSingleCircleTransfer = async (index: number, batchIndex: number): Promise<AttemptResult> => {
+    const walletId = getStoredCircleWalletId()
+    if (!walletId) {
+      return {
+        index,
+        mode: 'circle_transfer_per_attempt',
+        endpoint: '/api/circle/runner-transfer',
+        ok: false,
+        paymentStatus: 'failed',
+        settlementObserved: false,
+        txHash: null,
+        circleTransferId: null,
+        explorerUrl: null,
+        error: 'Circle wallet not found. Create a Circle wallet from the top bar first.',
+        batchIndex,
+        createdAt: new Date().toISOString(),
+      }
+    }
+    try {
+      const r = await fetch('/api/circle/runner-transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletId,
+          amountMinor: 1,
+          memo: `runner:${target.id}:attempt:${index}`,
+        }),
+      })
+      const body = (await r.json().catch(() => ({}))) as {
+        ok?: boolean
+        txHash?: string | null
+        circleTransferId?: string | null
+        error?: string
+        details?: unknown
+        transferState?: string | null
+      }
+      if (!r.ok || !body?.ok) {
+        const detail = typeof body?.details === 'string' ? ` (${body.details})` : ''
+        return {
+          index,
+          mode: 'circle_transfer_per_attempt',
+          endpoint: '/api/circle/runner-transfer',
+          ok: false,
+          paymentStatus: 'failed',
+          settlementObserved: false,
+          txHash: null,
+          circleTransferId: null,
+          transferState: null,
+          explorerUrl: null,
+          error: `${body?.error || 'Circle runner transfer failed.'}${detail}`,
+          batchIndex,
+          createdAt: new Date().toISOString(),
+        }
+      }
+      const txHash = typeof body.txHash === 'string' && body.txHash.startsWith('0x') ? body.txHash : null
+      const circleTransferId = typeof body.circleTransferId === 'string' ? body.circleTransferId : null
+      const transferState = typeof body.transferState === 'string' ? body.transferState : null
+      let resolvedTxHash = txHash
+      let resolvedState = transferState
+      if (!resolvedTxHash && circleTransferId) {
+        const statusRes = await fetch(`/api/circle/runner-transfer/status/${encodeURIComponent(circleTransferId)}`)
+        const statusBody = (await statusRes.json().catch(() => ({}))) as {
+          txHash?: string | null
+          transferState?: string | null
+        }
+        if (statusRes.ok && typeof statusBody.txHash === 'string' && statusBody.txHash.startsWith('0x')) {
+          resolvedTxHash = statusBody.txHash
+        }
+        if (statusRes.ok && typeof statusBody.transferState === 'string') {
+          resolvedState = statusBody.transferState
+        }
+      }
+      return {
+        index,
+        mode: 'circle_transfer_per_attempt',
+        endpoint: '/api/circle/runner-transfer',
+        ok: true,
+        paymentStatus: 'paid',
+        settlementObserved: Boolean(resolvedTxHash),
+        txHash: resolvedTxHash,
+        circleTransferId,
+        transferState: resolvedState,
+        explorerUrl: resolvedTxHash ? toExplorerUrl(session.network, resolvedTxHash) : null,
+        error: null,
+        batchIndex,
+        createdAt: new Date().toISOString(),
+      }
+    } catch (error) {
+      return {
+        index,
+        mode: 'circle_transfer_per_attempt',
+        endpoint: '/api/circle/runner-transfer',
+        ok: false,
+        paymentStatus: 'failed',
+        settlementObserved: false,
+        txHash: null,
+        circleTransferId: null,
+        transferState: null,
+        explorerUrl: null,
+        error: toUiErrorMessage(error),
+        batchIndex,
+        createdAt: new Date().toISOString(),
+      }
+    }
+  }
+
   const runSingle = async (index: number): Promise<AttemptResult> => {
     const effectiveBatchSize = Math.max(1, Number.parseInt(batchSize, 10) || 10)
     const batchIndex = Math.floor((index - 1) / effectiveBatchSize) + 1
-    return mode === 'direct_onchain_transfer' ? runSingleDirect(index, batchIndex) : runSingleNanopayment(index, batchIndex)
+    return mode === 'direct_onchain_transfer'
+      ? runSingleDirect(index, batchIndex)
+      : mode === 'x402_circle_nanopayments'
+        ? runSingleNanopayment(index, batchIndex)
+        : runSingleCircleTransfer(index, batchIndex)
   }
 
   const pushRunnerHistory = (result: AttemptResult) => {
@@ -368,13 +534,26 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         return
       }
     }
+    if (mode === 'circle_transfer_per_attempt' && !getStoredCircleWalletId()) {
+      setRunStatus('Circle transfer mode requires a created Circle wallet (top bar).')
+      return
+    }
+    if (mode === 'circle_transfer_per_attempt') {
+      const preflight = await checkCircleTransferPreflight()
+      if (!preflight.ok) {
+        setRunStatus(`Circle transfer preflight failed: ${preflight.message || 'missing server config.'}`)
+        return
+      }
+    }
     setBusy(true)
     setSmokePassed(false)
     setSummaryOut('')
     setRunStatus(
       mode === 'direct_onchain_transfer'
         ? 'Running x1 smoke in direct on-chain mode. Approve wallet prompts in MetaMask.'
-        : 'Running x1 smoke in Circle x402 nanopayment mode.',
+        : mode === 'x402_circle_nanopayments'
+          ? 'Running x1 smoke in Circle x402 nanopayment mode.'
+          : 'Running x1 smoke in Circle transfer-per-attempt mode.',
     )
     stopRequestedRef.current = false
     try {
@@ -399,6 +578,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
             settlementMode: mode,
             paymentStatus: result.paymentStatus,
             settlementObserved: result.settlementObserved,
+            circleTransferId: result.circleTransferId,
+            transferState: result.transferState,
           },
           null,
           2,
@@ -420,6 +601,17 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         return
       }
     }
+    if (mode === 'circle_transfer_per_attempt' && !getStoredCircleWalletId()) {
+      setRunStatus('Circle transfer mode requires a created Circle wallet (top bar).')
+      return
+    }
+    if (mode === 'circle_transfer_per_attempt') {
+      const preflight = await checkCircleTransferPreflight()
+      if (!preflight.ok) {
+        setRunStatus(`Circle transfer preflight failed: ${preflight.message || 'missing server config.'}`)
+        return
+      }
+    }
     if (!smokePassed) {
       setRunStatus('Run x1 smoke first. x50 is gated behind a successful smoke run.')
       return
@@ -429,6 +621,7 @@ function RunnerGrid({ session }: { session: NhsSession }) {
     stopRequestedRef.current = false
     let okCount = 0
     const localHashes: string[] = []
+    const localCircleTransferIds: string[] = []
     try {
       for (let i = 1; i <= totalAttempts; i += 1) {
         if (stopRequestedRef.current) {
@@ -438,7 +631,9 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         setRunStatus(
           mode === 'direct_onchain_transfer'
             ? `Running attempt ${i}/${totalAttempts} in direct on-chain mode. Approve wallet prompt.`
-            : `Running attempt ${i}/${totalAttempts} in Circle x402 nanopayment mode.`,
+            : mode === 'x402_circle_nanopayments'
+              ? `Running attempt ${i}/${totalAttempts} in Circle x402 nanopayment mode.`
+              : `Running attempt ${i}/${totalAttempts} in Circle transfer-per-attempt mode.`,
         )
         const result = await runSingle(i)
         setAttempts((prev) => [...prev, result])
@@ -464,6 +659,7 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         }
         okCount += 1
         if (result.txHash) localHashes.push(result.txHash)
+        if (result.circleTransferId) localCircleTransferIds.push(result.circleTransferId)
       }
       if (!stopRequestedRef.current && okCount === totalAttempts) {
         setRunStatus(`Completed ${totalAttempts}/${totalAttempts} attempts.`)
@@ -487,6 +683,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
                 mode === 'x402_circle_nanopayments'
                   ? 'Circle x402 can settle in batches, so successful paid calls may exceed visible on-chain tx count.'
                   : undefined,
+              circleTransferCount: localCircleTransferIds.length,
+              circleTransferIds: localCircleTransferIds,
             },
             null,
             2,
@@ -514,18 +712,28 @@ function RunnerGrid({ session }: { session: NhsSession }) {
       paymentStatus: row.paymentStatus,
       settlementObserved: row.settlementObserved,
       txHash: row.txHash,
+      circleTransferId: row.circleTransferId,
+      transferState: row.transferState,
       explorerUrl: row.explorerUrl,
       error: row.error,
       createdAt: row.createdAt,
     }))
     const paidSuccess = attempts.filter((item) => item.ok).length
     const chainTxCount = attempts.filter((item) => item.txHash && item.ok).length
+    const circleTransferIds = attempts
+      .map((item) => item.circleTransferId)
+      .filter((value): value is string => typeof value === 'string' && value.length > 0)
     const summary = {
       generatedAt: new Date().toISOString(),
       wallet: session.wallet,
       network: session.network,
       mode,
-      endpoint: mode === 'x402_circle_nanopayments' ? target.endpoint : 'direct_onchain_transfer',
+      endpoint:
+        mode === 'x402_circle_nanopayments'
+          ? target.endpoint
+          : mode === 'circle_transfer_per_attempt'
+            ? '/api/circle/runner-transfer'
+            : 'direct_onchain_transfer',
       attempted,
       paidSuccess,
       chainTxCount,
@@ -536,6 +744,10 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         mode === 'x402_circle_nanopayments'
           ? 'Successful paid calls can be greater than observed chain tx count because Circle Gateway settles x402 payments in batches.'
           : undefined,
+      circleTransferCount: circleTransferIds.length,
+      circleTransferIds,
+      dashboardMappingHint:
+        'Match attempt rows by createdAt + circleTransferId in Circle Console transactions view for judge evidence.',
     }
     const stamp = Date.now()
     downloadTextFile(`runner-attempts-${stamp}.json`, JSON.stringify({ generatedAt: new Date().toISOString(), rows }, null, 2))
@@ -593,7 +805,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         <p className="note">
           Mode 1 runs a <strong>direct wallet on-chain transaction</strong> per attempt with strict tx hash proof. Mode
           2 runs <strong>Circle x402 nanopayment calls</strong> where paid attempts are logged even if settlement is
-          batched.
+          batched. Mode 3 runs <strong>Circle transfer per attempt</strong> to produce one Circle transfer record per run
+          attempt when configured.
         </p>
         <p className="note">
           For strict hackathon proof, compare this list with your wallet on Arcscan and include both per-attempt hashes
@@ -601,7 +814,7 @@ function RunnerGrid({ session }: { session: NhsSession }) {
         </p>
         <p className="note">
           Active wallet mode: {walletMode}. Direct mode requires MetaMask. Circle x402 mode can run with either wallet
-          mode when x402 prerequisites are funded.
+          mode when x402 prerequisites are funded. Circle transfer mode requires saved Circle wallet metadata.
         </p>
       </article>
 
@@ -612,6 +825,7 @@ function RunnerGrid({ session }: { session: NhsSession }) {
           <select value={mode} onChange={(e) => setMode(e.target.value as RunnerMode)} disabled={busy}>
             <option value="direct_onchain_transfer">Direct on-chain transfer (strict tx per attempt)</option>
             <option value="x402_circle_nanopayments">Circle x402 nanopayments (batched settlement)</option>
+            <option value="circle_transfer_per_attempt">Circle transfer per attempt (best dashboard evidence)</option>
           </select>
         </label>
         <label>
@@ -691,6 +905,10 @@ function RunnerGrid({ session }: { session: NhsSession }) {
           <p className="note" style={{ marginBottom: '0.5rem' }}>
             <strong>Paid call confirmed (batched settlement mode)</strong>
           </p>
+        ) : mode === 'circle_transfer_per_attempt' ? (
+          <p className="note" style={{ marginBottom: '0.5rem' }}>
+            <strong>Circle transfer mode</strong> records transfer IDs for dashboard mapping.
+          </p>
         ) : null}
         <pre className="log">{summaryOut}</pre>
       </article>
@@ -719,6 +937,7 @@ function RunnerGrid({ session }: { session: NhsSession }) {
                   <option value="all">All transaction modes</option>
                   <option value="direct_onchain_transfer">Direct on-chain only</option>
                   <option value="x402_circle_nanopayments">Circle x402 only</option>
+                  <option value="circle_transfer_per_attempt">Circle transfer only</option>
                 </select>
               </label>
             </div>
@@ -747,6 +966,8 @@ function RunnerGrid({ session }: { session: NhsSession }) {
                     <th>Status</th>
                     <th>Endpoint</th>
                     <th>Date / time</th>
+                    <th>Circle transfer id</th>
+                    <th>Transfer state</th>
                     <th>Tx hash</th>
                     <th>Explorer</th>
                     <th>Error</th>
@@ -776,6 +997,12 @@ function RunnerGrid({ session }: { session: NhsSession }) {
                           <code>{row.endpoint}</code>
                         </td>
                         <td title={row.createdAt}>{formatDateTime(row.createdAt)}</td>
+                        <td>
+                          <code>{row.circleTransferId || '—'}</code>
+                        </td>
+                        <td>
+                          <code>{row.transferState || '—'}</code>
+                        </td>
                         <td>
                           <code>{row.txHash || '—'}</code>
                         </td>

@@ -16,7 +16,7 @@ export type NhsTxItem = {
   /** Wallet mode active when the paid call was made */
   walletMode?: WalletMode
   /** Runner evidence mode when recorded from on-chain runner */
-  runnerMode?: 'direct_onchain_transfer' | 'x402_circle_nanopayments'
+  runnerMode?: 'direct_onchain_transfer' | 'x402_circle_nanopayments' | 'circle_transfer_per_attempt'
   /** Attempt number in runner execution */
   attemptIndex?: number
   /** Batch number in runner execution */

@@ -303,6 +303,23 @@ Do not connect real clinical systems or ingest real patient records without appr
 3. **Reset the attempts filter after import.**  
    Operators often leave “Direct on-chain only” selected; importing an x402-only JSON then looks like “0 rows” even though rows loaded. Default the filter back to **all** after a successful import.
 
+## Session Update (Circle transfer per-attempt lane)
+
+1. **Circle transfer evidence is a third lane, not a replacement for x402 semantics.**  
+   Adding a dedicated `circle_transfer_per_attempt` runner mode makes judge evidence easier when reviewers want one visible Circle transfer row per attempt.
+
+2. **`entitySecretCiphertext` must be fresh per transfer.**  
+   Reusing ciphertext causes Circle error `156004` (“Reusing an entity secret ciphertext is not allowed”). Generating a fresh ciphertext from the registered raw entity secret per request resolves this class.
+
+3. **Create-success does not always include immediate `txHash`.**  
+   A transfer can return `201` with a `transferId` while transaction state is still `QUEUED` and hash is not yet available in the initial payload.
+
+4. **Status lookup by transfer ID closes the UX gap.**  
+   Looking up `/v1/w3s/transactions/{id}` after creation provides a reliable way to fetch late-arriving hash/state and align runner proof with Circle Console + Arcscan.
+
+5. **Runner exports should include Circle-native identifiers.**  
+   `circleTransferId` and `transferState` in per-attempt rows/summaries make it straightforward to map app attempts to Circle Console entries during demos.
+
 ## Session Update (RF2-first SNOMED alternative to Snowstorm)
 
 1. **A local RF2 index removes Snowstorm/Elasticsearch runtime dependency for browse/search demos.**  
